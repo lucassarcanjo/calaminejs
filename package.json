@@ -1,0 +1,13 @@
+{
+  "name": "calaminejs-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fixtures": "node bench/make-fixtures.mjs",
+    "bench": "node bench/bench.mjs",
+    "bench:bun": "bun bench/bench.mjs"
+  },
+  "devDependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

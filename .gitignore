@@ -1,0 +1,12 @@
+# Rust
+/target
+
+# wasm-pack output
+/pkg
+
+# node (bun.lock is committed for reproducible installs)
+node_modules
+
+# Generated fixtures — rebuild with `node bench/make-fixtures.mjs`
+# and `node bench/make-date-fixture.mjs`. The large one is ~23 MB.
+/bench/fixtures

@@ -1,0 +1,28 @@
+[package]
+name = "calamine-wasm"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# No `dates` feature, and no chrono. That feature gates nothing but the
+# `as_datetime`/`as_duration` chrono helpers — date *detection* from number
+# formats is always on. `ExcelDateTime::to_ymd_hms_milli` gives us the civil
+# fields directly, with millisecond precision and 1900/1904 handled internally.
+calamine = "0.36"
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde-wasm-bindgen = "0.6"
+console_error_panic_hook = "0.1"
+
+[profile.release]
+# Spike is measuring throughput, so optimise for speed, not size.
+# Revisit opt-level = "z" once the API shape is settled.
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
