@@ -68,6 +68,46 @@ ignoring it. A string that cannot be parsed is passed through unchanged rather t
 
 Error cells carry their Excel spelling — `#DIV/0!`, `#N/A`, `#REF!`.
 
+## Testing
+
+Upstream has 306 Rust tests over 131 fixtures. Transliterating their assertions would be
+laborious and would mostly re-test calamine, which is not the thing at risk here — what needs
+proving is that *this* layer, the boundary plus the cell mapping, does not corrupt anything on
+the way out. So the corpus is reused but the method is differential:
+
+1. `examples/dump_native.rs` reads a workbook natively and emits the raw `Data` enum, with none
+   of this crate's opinions applied.
+2. The same file is read through the wasm binding, under all three date policies.
+3. `test/differential.mjs` recomputes the expected output **in JavaScript**, from the neutral
+   dump, and compares.
+
+Step 3 is the load-bearing one. Checking our Rust against our Rust would only show that wasm
+behaves like the host. Rebuilding the mapping independently in a second language means a bug
+has to be made twice, the same way, to escape. That is what caught `"P"` and `"PT"` parsing as
+zero-length durations instead of being rejected — the unit tests had waved it through.
+
+```
+corpus: 135 spreadsheets, 260 sheets, 1538620 cells
+policies: iso, serial, epoch-millis  (4615860 cell comparisons)
+
+  format   files  sheets  cells     unopenable  divergences
+  .ods     17     39      202       2           0
+  .xls     34     81      1527007   3           0
+  .xlsb    12     26      57        1           0
+  .xlsm    4      10      6         0           0
+  .xlsx    68     104     11348     2           0
+```
+
+Eight files are rejected by both sides and agree on that — password-protected workbooks and
+deliberately truncated ones.
+
+The harness also counts which cell types it actually reached, because "no divergences" is
+meaningless over a branch nothing exercised. The first run scored `dtiso` 6 and `duriso` 2
+across all 130 upstream files — near-zero coverage of the ISO parsing, the code most likely to
+be wrong. `test/make-crafted-fixtures.mjs` fills those in (hand-built ODS and xlsx `t="d"`
+cells, all eight `CellErrorType` variants, offsets and truncated times that must pass through
+untouched), taking them to 60 and 20.
+
 ## Robustness
 
 `test/adversarial.mjs` feeds the binding sixteen kinds of hostile input — empty buffers,
@@ -99,12 +139,27 @@ writer applied a local offset. Its reader then applies a *different* fudge and r
 ## Layout
 
 ```
-src/lib.rs                  the binding: 3 boundary strategies, 3 date policies
-bench/make-fixtures.mjs     perf fixtures (small/medium/large)
-bench/make-date-fixture.mjs date fixture, written as raw serials so the bytes are known
-bench/bench.mjs             the benchmark, runs identically under Node and Bun
-bench/check.mjs             structural comparison against SheetJS
-bench/check-dates.mjs       11 date cases incl. the 59/60/61 leap-bug boundary
+src/lib.rs                      the binding: 3 boundary strategies, 3 date policies
+examples/dump_native.rs         reference dumper: raw calamine Data, no opinions applied
+
+bench/make-fixtures.mjs         perf fixtures (small/medium/large)
+bench/make-date-fixture.mjs     date fixture, written as raw serials so the bytes are known
+bench/bench.mjs                 the benchmark, runs identically under Node and Bun
+bench/check.mjs                 structural comparison against SheetJS
+bench/check-dates.mjs           11 date cases incl. the 59/60/61 leap-bug boundary
+
+test/fetch-fixtures.sh          fetches calamine's corpus, pinned to v0.36.1
+test/make-crafted-fixtures.mjs  fixtures for the branches upstream barely reaches
+test/differential.mjs           the corpus, cross-checked against a JS reimplementation
+test/adversarial.mjs            16 hostile inputs + a liveness check after each
+test/zip.mjs                    STORE-only zip writer, for hand-building hostile files
+```
+
+```sh
+bun run fixtures   # fetch + generate everything (~44 MB, not committed)
+bun run build      # wasm-pack
+bun run test       # cargo test + dates + adversarial + differential
+bun run bench      # or bench:bun
 ```
 
 ## Build and run
@@ -117,13 +172,9 @@ rustup target add wasm32-unknown-unknown
 brew install wasm-pack binaryen
 
 bun install
-wasm-pack build --release --target web --out-dir pkg
-
-node bench/make-fixtures.mjs        # ~23 MB of fixtures, not committed
-node bench/make-date-fixture.mjs
-node bench/check-dates.mjs
-node bench/bench.mjs
-bun  bench/bench.mjs
+bun run build
+bun run fixtures
+bun run test
 ```
 
 ## Notes on the build

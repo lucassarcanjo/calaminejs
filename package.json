@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "fixtures": "node bench/make-fixtures.mjs",
+    "build": "wasm-pack build --release --target web --out-dir pkg",
+    "fixtures": "node bench/make-fixtures.mjs && node bench/make-date-fixture.mjs && ./test/fetch-fixtures.sh && node test/make-crafted-fixtures.mjs",
+    "test": "cargo test && node bench/check-dates.mjs && node test/adversarial.mjs && node test/differential.mjs",
+    "test:differential": "cargo build --release --example dump_native && node test/differential.mjs",
     "bench": "node bench/bench.mjs",
     "bench:bun": "bun bench/bench.mjs"
   },

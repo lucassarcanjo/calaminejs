@@ -10,3 +10,6 @@ node_modules
 # Generated fixtures — rebuild with `node bench/make-fixtures.mjs`
 # and `node bench/make-date-fixture.mjs`. The large one is ~23 MB.
 /bench/fixtures
+
+# Fetched from tafia/calamine (21 MB) and generated. `bun run fixtures`.
+/test/fixtures

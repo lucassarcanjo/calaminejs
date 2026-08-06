@@ -127,6 +127,16 @@ impl Civil {
 /// them throughout, and xlsx `t="d"` cells carry them too. Without this, a
 /// caller asking for `serial` would get a string back from those cells and
 /// nothing else, which would make the policy a lie.
+///
+/// Strict by design: anything not fully understood returns `None` and is passed
+/// through to the caller verbatim rather than half-converted. Two cases make
+/// that the only honest option:
+///
+/// - `2020-01-01T12:34:56Z` and `...+05:00` carry an offset, which makes them
+///   instants. `Civil` cannot hold an offset, so converting would silently drop
+///   it and quietly move the value by hours.
+/// - `2020-01-01T12:34` is a time we cannot read in full. Treating it as
+///   date-only would silently discard 12:34.
 fn parse_iso_datetime(s: &str) -> Option<Civil> {
     let bytes = s.as_bytes();
     if bytes.len() < 10 || bytes[4] != b'-' || bytes[7] != b'-' {
@@ -138,20 +148,36 @@ fn parse_iso_datetime(s: &str) -> Option<Civil> {
     let mo = num(5..7)? as u8;
     let d = num(8..10)? as u8;
 
-    // Date-only is legal and common.
+    // Date-only is legal and common (ODS writes it for date cells).
     let (mut h, mut mi, mut sec, mut ms) = (0u8, 0u8, 0u8, 0u16);
-    if bytes.len() >= 19 && (bytes[10] == b'T' || bytes[10] == b' ') {
+    if bytes.len() > 10 {
+        if bytes.len() < 19
+            || (bytes[10] != b'T' && bytes[10] != b' ')
+            || bytes[13] != b':'
+            || bytes[16] != b':'
+        {
+            return None;
+        }
         h = num(11..13)? as u8;
         mi = num(14..16)? as u8;
         sec = num(17..19)? as u8;
-        if bytes.len() > 20 && bytes[19] == b'.' {
-            let frac: String = s[20..].chars().take_while(char::is_ascii_digit).collect();
-            if !frac.is_empty() {
-                // Left-align to milliseconds: ".5" is 500ms, ".0005" is 0ms.
-                let scaled = format!("{frac:0<3}")[..3].parse::<u16>().ok()?;
-                ms = scaled;
+
+        let tail = &s[19..];
+        if !tail.is_empty() {
+            // Only fractional seconds are understood here. Anything else is a
+            // timezone designator, and see above.
+            let frac = tail.strip_prefix('.')?;
+            if frac.is_empty() || !frac.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
             }
+            // Left-align to milliseconds: ".5" is 500ms, ".0005" is 0ms.
+            ms = format!("{frac:0<3}")[..3].parse::<u16>().ok()?;
         }
+    }
+
+    // Reject impossible components rather than emitting a nonsense ISO string.
+    if !(1..=12).contains(&mo) || !(1..=31).contains(&d) || h > 23 || mi > 59 || sec > 59 {
+        return None;
     }
     Some(Civil { y, mo, d, h, mi, s: sec, ms })
 }
@@ -164,19 +190,25 @@ fn parse_iso_duration(s: &str) -> Option<f64> {
         None => (1.0, s),
     };
     let rest = rest.strip_prefix('P')?;
-    let (date_part, time_part) = match rest.split_once('T') {
-        Some((d, t)) => (d, t),
-        None => (rest, ""),
+    let (date_part, time_part, had_t) = match rest.split_once('T') {
+        Some((d, t)) => (d, t, true),
+        None => (rest, "", false),
     };
+    // "P1DT" — a designator introducing nothing.
+    if had_t && time_part.is_empty() {
+        return None;
+    }
 
     let mut days = 0.0;
     let mut number = String::new();
+    let mut components = 0;
     for c in date_part.chars() {
         if c.is_ascii_digit() || c == '.' {
             number.push(c);
         } else {
             let value: f64 = number.parse().ok()?;
             number.clear();
+            components += 1;
             days += match c {
                 'D' => value,
                 'W' => value * 7.0,
@@ -191,6 +223,7 @@ fn parse_iso_duration(s: &str) -> Option<f64> {
         } else {
             let value: f64 = number.parse().ok()?;
             number.clear();
+            components += 1;
             days += match c {
                 'H' => value / 24.0,
                 'M' => value / 1_440.0,
@@ -201,6 +234,12 @@ fn parse_iso_duration(s: &str) -> Option<f64> {
     }
     if !number.is_empty() {
         return None; // trailing digits with no unit
+    }
+    // ISO-8601 requires at least one component: bare "P" and "PT" are not
+    // zero-length durations, they are not durations. Without this they parsed
+    // as 0 and a meaningless string became a confident-looking value.
+    if components == 0 {
+        return None;
     }
     Some(sign * days)
 }
@@ -352,6 +391,26 @@ mod tests {
     }
 
     #[test]
+    fn refuses_to_half_understand_a_datetime() {
+        // An offset makes this an instant; Civil cannot hold one, and dropping
+        // it would move the value by hours without saying so.
+        assert!(iso("2020-01-01T12:34:56Z").is_none());
+        assert!(iso("2020-01-01T12:34:56+05:00").is_none());
+        assert!(iso("2020-01-01T12:34:56-08:00").is_none());
+        // Truncated time: treating it as date-only would discard 12:34.
+        assert!(iso("2020-01-01T12:34").is_none());
+        assert!(iso("2020-01-01T12").is_none());
+        // Impossible components produce a nonsense ISO string if waved through.
+        assert!(iso("2020-13-01T00:00:00").is_none());
+        assert!(iso("2020-01-32T00:00:00").is_none());
+        assert!(iso("2020-01-01T24:00:00").is_none());
+        assert!(iso("2020-01-01T00:60:00").is_none());
+        assert!(iso("2020-00-01").is_none());
+        // Trailing junk after an otherwise valid fraction.
+        assert!(iso("2020-01-01T12:34:56.123abc").is_none());
+    }
+
+    #[test]
     fn rejects_non_iso_datetimes() {
         assert!(iso("not a date").is_none());
         assert!(iso("2020-1-1").is_none());
@@ -377,6 +436,14 @@ mod tests {
         assert!(parse_iso_duration("PT36").is_none()); // digits with no unit
         assert!(parse_iso_duration("36H").is_none()); // no leading P
         assert!(parse_iso_duration("").is_none());
+        // Caught by the differential test, not by these: a designator with no
+        // components parsed as 0.0, turning a meaningless string into a
+        // confident-looking value.
+        assert!(parse_iso_duration("P").is_none());
+        assert!(parse_iso_duration("PT").is_none());
+        assert!(parse_iso_duration("-PT").is_none());
+        assert!(parse_iso_duration("P1DT").is_none());
+        assert!(parse_iso_duration("PT1X").is_none());
     }
 
     #[test]
