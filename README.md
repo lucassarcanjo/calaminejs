@@ -62,6 +62,33 @@ keeps that inconsistency away from callers.
 - Over the JSON boundary a date cell and a string cell are both strings, and indistinguishable.
   Unresolved — see below.
 
+Cells that already hold an ISO string in the file (ODS throughout, xlsx `t="d"`) are parsed and
+routed through the same policy, so they answer to `dates` like any other cell rather than
+ignoring it. A string that cannot be parsed is passed through unchanged rather than lost.
+
+Error cells carry their Excel spelling — `#DIV/0!`, `#N/A`, `#REF!`.
+
+## Robustness
+
+`test/adversarial.mjs` feeds the binding sixteen kinds of hostile input — empty buffers,
+truncated files, a `.csv` renamed to `.xlsx`, a sheet that is not XML, a workbook with no
+sheets — and after each one re-reads a known-good file to check the instance is still alive.
+That last part is the point: the crate builds with `panic = "abort"`, so a panic anywhere in
+calamine would kill the wasm instance for the whole process, not just the failing call.
+
+Current state: every case either returns or throws a clean `Error`, and the instance survives
+all of them. calamine returns `Result` rather than panicking on malformed input.
+
+- **A declared dimension is not trusted.** A file claiming `A1:XFD1048576` while holding one
+  cell yields one cell — no 17-billion-cell allocation. Cell references outside the declared
+  dimension are still read.
+- **Memory plateaus but does not shrink.** Reading the 23 MB fixture settles at ~153 MB of wasm
+  memory and stays there across repeated reads, so there is no leak — but that is a ~6.6x
+  amplification, and wasm memory is never returned to the OS. Relevant to the ceiling question
+  below.
+- **Non-finite floats become `null`**, silently and indistinguishably from an empty cell. JSON
+  has no `Infinity`, and Excel cannot store one, so this only fires on crafted files.
+
 ### SheetJS does not round-trip its own dates
 
 Worth knowing if you benchmark against it. Writing `new Date(Date.UTC(2020,0,1))` on a machine

@@ -60,7 +60,7 @@ impl DatePolicy {
 /// to whether the workbook used the 1900 or 1904 epoch.
 fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let y = if m <= 2 { y - 1 } else { y };
-    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let era = (if y >= 0 { y } else { y - 399 }) / 400;
     let yoe = y - era * 400;
     let mp = (m + 9) % 12;
     let doy = (153 * mp + 2) / 5 + d - 1;
@@ -68,36 +68,150 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     era * 146_097 + doe - 719_468
 }
 
-fn datetime_to_json(dt: &ExcelDateTime, policy: DatePolicy) -> Value {
-    if policy == DatePolicy::Serial {
-        return Value::from(dt.as_f64());
+/// Days from 1899-12-30 (serial 0 in the 1900 system) to 1970-01-01.
+const UNIX_EPOCH_SERIAL: i64 = 25_569;
+
+/// Civil date-time components — the common currency between the three ways a
+/// date reaches us: an Excel serial, an ISO string already in the file, and a
+/// duration. Routing all of them through one type is what keeps the `dates`
+/// policy honest no matter which the file happened to use.
+#[derive(Clone, Copy)]
+struct Civil {
+    y: i64,
+    mo: u8,
+    d: u8,
+    h: u8,
+    mi: u8,
+    s: u8,
+    ms: u16,
+}
+
+impl Civil {
+    fn from_excel(dt: &ExcelDateTime) -> Self {
+        let (y, mo, d, h, mi, s, ms) = dt.to_ymd_hms_milli();
+        Self { y: y as i64, mo, d, h, mi, s, ms }
     }
 
-    let (y, mo, d, h, mi, s, ms) = dt.to_ymd_hms_milli();
+    fn millis_of_day(&self) -> i64 {
+        self.h as i64 * 3_600_000 + self.mi as i64 * 60_000 + self.s as i64 * 1_000 + self.ms as i64
+    }
 
-    match policy {
-        DatePolicy::Iso => Value::String(format!(
-            "{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}.{ms:03}"
-        )),
-        DatePolicy::EpochMillis => {
-            let days = days_from_civil(y as i64, mo as i64, d as i64);
-            let millis = days * 86_400_000
-                + h as i64 * 3_600_000
-                + mi as i64 * 60_000
-                + s as i64 * 1_000
-                + ms as i64;
-            Value::from(millis)
+    fn to_iso(self) -> String {
+        let Civil { y, mo, d, h, mi, s, ms } = self;
+        format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}.{ms:03}")
+    }
+
+    fn to_epoch_millis(self) -> i64 {
+        days_from_civil(self.y, self.mo as i64, self.d as i64) * 86_400_000 + self.millis_of_day()
+    }
+
+    /// Note: for dates before 1900-03-01 this disagrees with Excel by a day,
+    /// because Excel's numbering there is built on its belief that 1900 was a
+    /// leap year. Reading a serial is exact; only this reverse direction is
+    /// affected, and only for a range no real workbook uses as a date.
+    fn to_serial(self) -> f64 {
+        let days = days_from_civil(self.y, self.mo as i64, self.d as i64) + UNIX_EPOCH_SERIAL;
+        days as f64 + self.millis_of_day() as f64 / 86_400_000.0
+    }
+
+    fn to_json(self, policy: DatePolicy) -> Value {
+        match policy {
+            DatePolicy::Iso => Value::String(self.to_iso()),
+            DatePolicy::EpochMillis => Value::from(self.to_epoch_millis()),
+            DatePolicy::Serial => Value::from(self.to_serial()),
         }
-        DatePolicy::Serial => unreachable!("handled above"),
     }
 }
 
+/// Parses the ISO-8601 date-times that appear verbatim in a file — ODS uses
+/// them throughout, and xlsx `t="d"` cells carry them too. Without this, a
+/// caller asking for `serial` would get a string back from those cells and
+/// nothing else, which would make the policy a lie.
+fn parse_iso_datetime(s: &str) -> Option<Civil> {
+    let bytes = s.as_bytes();
+    if bytes.len() < 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return None;
+    }
+    let num = |range: std::ops::Range<usize>| s.get(range)?.parse::<u32>().ok();
+
+    let y = num(0..4)? as i64;
+    let mo = num(5..7)? as u8;
+    let d = num(8..10)? as u8;
+
+    // Date-only is legal and common.
+    let (mut h, mut mi, mut sec, mut ms) = (0u8, 0u8, 0u8, 0u16);
+    if bytes.len() >= 19 && (bytes[10] == b'T' || bytes[10] == b' ') {
+        h = num(11..13)? as u8;
+        mi = num(14..16)? as u8;
+        sec = num(17..19)? as u8;
+        if bytes.len() > 20 && bytes[19] == b'.' {
+            let frac: String = s[20..].chars().take_while(char::is_ascii_digit).collect();
+            if !frac.is_empty() {
+                // Left-align to milliseconds: ".5" is 500ms, ".0005" is 0ms.
+                let scaled = format!("{frac:0<3}")[..3].parse::<u16>().ok()?;
+                ms = scaled;
+            }
+        }
+    }
+    Some(Civil { y, mo, d, h, mi, s: sec, ms })
+}
+
+/// Parses `PT36H0M0S` / `-PT1H30M` / `P1DT2H` into days, matching the units
+/// calamine uses for durations elsewhere.
+fn parse_iso_duration(s: &str) -> Option<f64> {
+    let (sign, rest) = match s.strip_prefix('-') {
+        Some(rest) => (-1.0, rest),
+        None => (1.0, s),
+    };
+    let rest = rest.strip_prefix('P')?;
+    let (date_part, time_part) = match rest.split_once('T') {
+        Some((d, t)) => (d, t),
+        None => (rest, ""),
+    };
+
+    let mut days = 0.0;
+    let mut number = String::new();
+    for c in date_part.chars() {
+        if c.is_ascii_digit() || c == '.' {
+            number.push(c);
+        } else {
+            let value: f64 = number.parse().ok()?;
+            number.clear();
+            days += match c {
+                'D' => value,
+                'W' => value * 7.0,
+                // Y and M are not fixed-length, so refuse rather than guess.
+                _ => return None,
+            };
+        }
+    }
+    for c in time_part.chars() {
+        if c.is_ascii_digit() || c == '.' {
+            number.push(c);
+        } else {
+            let value: f64 = number.parse().ok()?;
+            number.clear();
+            days += match c {
+                'H' => value / 24.0,
+                'M' => value / 1_440.0,
+                'S' => value / 86_400.0,
+                _ => return None,
+            };
+        }
+    }
+    if !number.is_empty() {
+        return None; // trailing digits with no unit
+    }
+    Some(sign * days)
+}
+
 /// A duration is *not* a date. A cell formatted `[h]:mm:ss` holding 1.5 means
-/// 36 hours, not 1900-01-01T12:00. Calling `to_ymd_hms_milli` on it would
-/// silently produce a nonsense date, so durations get their own path: an
-/// ISO-8601 duration string, or raw days under the `serial` policy.
-fn duration_to_json(dt: &ExcelDateTime, policy: DatePolicy) -> Value {
-    let days = dt.as_f64();
+/// 36 hours, not 1900-01-01T12:00. Treating it as a serial date would silently
+/// produce a nonsense date in 1900, so durations get their own path.
+///
+/// Under `epoch-millis` the result is a count of milliseconds, not a point in
+/// time — there is no instant to report for "36 hours".
+fn duration_to_json(days: f64, policy: DatePolicy) -> Value {
     if policy == DatePolicy::Serial {
         return Value::from(days);
     }
@@ -129,11 +243,24 @@ fn cell_to_json(cell: &Data, policy: DatePolicy) -> Value {
         Data::Int(i) => Value::from(*i),
         Data::Float(f) => Value::from(*f),
         Data::Bool(b) => Value::Bool(*b),
-        Data::DateTime(dt) if dt.is_duration() => duration_to_json(dt, policy),
-        Data::DateTime(dt) => datetime_to_json(dt, policy),
-        // Already ISO-8601 in the file; pass through untouched.
-        Data::DateTimeIso(s) | Data::DurationIso(s) => Value::String(s.clone()),
-        Data::Error(e) => Value::String(format!("#ERR:{e:?}")),
+        Data::DateTime(dt) if dt.is_duration() => duration_to_json(dt.as_f64(), policy),
+        Data::DateTime(dt) => Civil::from_excel(dt).to_json(policy),
+        // Already ISO in the file (ODS throughout, and xlsx `t="d"` cells).
+        // Still routed through the policy so these cells answer to `dates`
+        // like any other — otherwise asking for `serial` would return a string
+        // from exactly these cells and the policy would be a lie. A string we
+        // cannot parse is passed through rather than lost.
+        Data::DateTimeIso(s) => match parse_iso_datetime(s) {
+            Some(civil) => civil.to_json(policy),
+            None => Value::String(s.clone()),
+        },
+        Data::DurationIso(s) => match parse_iso_duration(s) {
+            Some(days) => duration_to_json(days, policy),
+            None => Value::String(s.clone()),
+        },
+        // `Display` gives the Excel-facing spelling (`#DIV/0!`); the derived
+        // `Debug` would leak Rust variant names (`Div0`) into the API.
+        Data::Error(e) => Value::String(e.to_string()),
     }
 }
 
@@ -202,4 +329,106 @@ pub fn sheet_to_jsvalue(
     let range = read_range(bytes, sheet)?;
     serde_wasm_bindgen::to_value(&to_rows(&range, policy))
         .map_err(|e| JsError::new(&format!("could not convert sheet: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn iso(s: &str) -> Option<String> {
+        parse_iso_datetime(s).map(Civil::to_iso)
+    }
+
+    #[test]
+    fn parses_iso_datetimes() {
+        assert_eq!(iso("2020-01-01").unwrap(), "2020-01-01T00:00:00.000");
+        assert_eq!(iso("2020-01-01T12:34:56").unwrap(), "2020-01-01T12:34:56.000");
+        // Fractional seconds are left-aligned to milliseconds, not read as an integer.
+        assert_eq!(iso("2020-01-01T12:34:56.5").unwrap(), "2020-01-01T12:34:56.500");
+        assert_eq!(iso("2020-01-01T12:34:56.25").unwrap(), "2020-01-01T12:34:56.250");
+        assert_eq!(iso("2020-01-01T12:34:56.123456").unwrap(), "2020-01-01T12:34:56.123");
+        // A space separator shows up in the wild.
+        assert_eq!(iso("2020-01-01 12:34:56").unwrap(), "2020-01-01T12:34:56.000");
+    }
+
+    #[test]
+    fn rejects_non_iso_datetimes() {
+        assert!(iso("not a date").is_none());
+        assert!(iso("2020-1-1").is_none());
+        assert!(iso("").is_none());
+        assert!(iso("2020-01").is_none());
+    }
+
+    #[test]
+    fn parses_iso_durations() {
+        let day = 86_400.0;
+        assert_eq!(parse_iso_duration("PT36H0M0S").unwrap(), 1.5);
+        assert_eq!(parse_iso_duration("P1DT12H").unwrap(), 1.5);
+        assert_eq!(parse_iso_duration("P1W").unwrap(), 7.0);
+        assert!((parse_iso_duration("PT0.5S").unwrap() - 0.5 / day).abs() < 1e-12);
+        assert!((parse_iso_duration("-PT1H30M").unwrap() + 1.5 / 24.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rejects_ambiguous_or_malformed_durations() {
+        // Years and months are not a fixed number of days; refuse rather than guess.
+        assert!(parse_iso_duration("P1Y").is_none());
+        assert!(parse_iso_duration("P1M").is_none());
+        assert!(parse_iso_duration("PT36").is_none()); // digits with no unit
+        assert!(parse_iso_duration("36H").is_none()); // no leading P
+        assert!(parse_iso_duration("").is_none());
+    }
+
+    #[test]
+    fn serial_round_trips_through_civil() {
+        // calamine's own documented example.
+        let dt = ExcelDateTime::new(45943.541, calamine::ExcelDateTimeType::DateTime, false);
+        let civil = Civil::from_excel(&dt);
+        assert_eq!(civil.to_iso(), "2025-10-13T12:59:02.400");
+        assert!((civil.to_serial() - 45943.541).abs() < 1e-9);
+    }
+
+    #[test]
+    fn epoch_millis_matches_a_known_instant() {
+        // 2020-01-01T00:00:00Z
+        let dt = ExcelDateTime::new(43831.0, calamine::ExcelDateTimeType::DateTime, false);
+        assert_eq!(Civil::from_excel(&dt).to_epoch_millis(), 1_577_836_800_000);
+    }
+
+    #[test]
+    fn days_from_civil_handles_negative_years() {
+        // The pre-year-0 branch is reachable from a hostile file carrying a
+        // large negative serial, so it must not be silently wrong. Asserted as
+        // relationships rather than magic constants: a day-count function is
+        // correct iff consecutive days differ by exactly one, across every
+        // boundary that has ever hidden an off-by-one.
+        assert_eq!(days_from_civil(1970, 1, 1), 0);
+        assert_eq!(days_from_civil(1969, 12, 31), -1);
+        assert_eq!(days_from_civil(1900, 1, 1), -25_567); // 70y = 25550 + 17 leaps
+
+        // Hinnant's algorithm is anchored at 0000-03-01.
+        assert_eq!(days_from_civil(0, 3, 1), -719_468);
+
+        // Year 0 is a leap year in the proleptic Gregorian calendar (÷400),
+        // so 0000-02-29 exists and is the day before the anchor.
+        assert_eq!(days_from_civil(0, 2, 29), days_from_civil(0, 3, 1) - 1);
+
+        // Crossing from a negative year into year 0 must stay contiguous.
+        assert_eq!(days_from_civil(-1, 12, 31) + 1, days_from_civil(0, 1, 1));
+        assert_eq!(days_from_civil(-1, 12, 31), -719_529);
+
+        // And every step across the -1/0 boundary is one day.
+        for (a, b) in [
+            ((-1, 12, 30), (-1, 12, 31)),
+            ((-1, 12, 31), (0, 1, 1)),
+            ((0, 1, 1), (0, 1, 2)),
+            ((0, 2, 28), (0, 2, 29)),
+        ] {
+            assert_eq!(
+                days_from_civil(a.0, a.1, a.2) + 1,
+                days_from_civil(b.0, b.1, b.2),
+                "{a:?} -> {b:?}"
+            );
+        }
+    }
 }
