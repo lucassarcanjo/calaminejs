@@ -4,8 +4,29 @@
 WebAssembly, so the same artifact reads `.xlsx` / `.xls` / `.xlsb` / `.ods` in Node, Bun, Deno,
 browsers and edge runtimes without a native addon or a per-platform prebuild.
 
-**Status: spike.** The API is not settled and nothing is published. What exists is enough to
-answer the questions that decide the API, and the answers are below.
+**Status: not published.** The API below works and is tested; what is missing is the packaging
+that would let you install it.
+
+## Using it
+
+```js
+sheetNames(bytes)                              // ["Sheet1", "Data"]
+
+readCells(bytes, { sheet, dates, tagged })     // JSON string: rows of cells
+toJson(bytes, { sheet, dates, tagged, header });// JSON string: rows as objects
+toCsv(bytes, { sheet, dates, delimiter })      // RFC 4180 CSV
+toMarkdown(bytes, { sheet, dates })            // GitHub-flavoured table
+```
+
+Every function takes the file as bytes — nothing here touches a filesystem, which is what lets
+one artifact serve Node, Bun, Deno, browsers and edge workers. An unknown option is an error
+rather than a silent no-op, so `{ sheets: "Data" }` tells you instead of quietly reading the
+wrong sheet.
+
+`tagged: true` turns each cell into `{ t, v }` with `t` one of `num`, `str`, `bool`, `date`,
+`dur`, `err`. That is what makes a date cell distinguishable from text that happens to read
+`2020-01-01`. Empty cells are `null` either way. Without tags the distinction is genuinely
+lost — a documented tradeoff, and the cheaper payload.
 
 ## Why bother
 
@@ -13,20 +34,30 @@ SheetJS is the incumbent and it is slow on anything large. Reading a 23 MB / 1.8
 
 | | small (5k cells) | medium (400k) | large (1.8M cells, 23 MB) |
 |---|---|---|---|
-| wasm: parse only (floor) | 2 ms | 133 ms | 670 ms |
-| wasm: JSON string + `JSON.parse` | 3 ms | 204 ms | **885 ms (5.1x)** |
-| wasm: serde-wasm-bindgen | 3 ms | 197 ms | **942 ms (4.8x)** |
-| SheetJS: read + `sheet_to_json` | 8 ms | 839 ms | 4.55 s |
+| `parseOnly` — the floor | 2 ms | 131 ms | 634 ms |
+| `toCsv` | 2 ms | 188 ms | **865 ms (5.3x)** |
+| `readCells` values | 3 ms | 190 ms | **981 ms (4.7x)** |
+| `toMarkdown` | 3 ms | — | 1.07 s (4.3x) |
+| `readCells` tagged | 4 ms | 326 ms | 1.53 s (3.0x) |
+| SheetJS `sheet_to_json` | 8 ms | 786 ms | 4.61 s |
+| SheetJS `sheet_to_csv` | 8 ms | — | 4.57 s |
 
-Node 22.18, macOS arm64, median of N runs. Bun 1.3.5 runs the identical artifact and reaches
-9.5x on the large fixture, because SheetJS degrades harder there (8.23 s).
+Node 22.18, macOS arm64, median of N runs. Bun 1.3.5 runs the identical artifact and pulls
+further ahead, because SheetJS degrades harder there.
 
-`parse only` does the full parse and returns a single integer, so it is the floor — everything
-above it is what the JS/wasm boundary costs. That gap is only ~30%, which was the surprise:
-the boundary is not the bottleneck, so the API does not need to be contorted into a columnar
-or batched-iterator shape to be fast.
+`parseOnly` does the full parse and returns a single integer, so it is the floor — everything
+above it is what shaping and crossing the boundary costs. That gap is ~35-55%, which was the
+surprise: the boundary is not the bottleneck, so the API does not need to be contorted into a
+columnar or batched-iterator shape to be fast.
 
-Artifact size: **351 KB gzipped** (680 KB raw) plus 3.2 KB of JS glue.
+`toCsv` is the cheapest materialised output because only one string crosses the boundary, no
+matter how many cells there are. It is not free — rendering 1.8M cells to text still costs
+231 ms over the floor — but it beats building JSON values, and beats SheetJS by 5.3x.
+
+Tagging costs about 55% on top of plain values. Worth it when you need the types, which is why
+it is a flag rather than the default.
+
+Artifact size: **370 KB gzipped** (720 KB raw) plus 3.2 KB of JS glue.
 
 ## Dates
 
@@ -59,8 +90,8 @@ keeps that inconsistency away from callers.
   instant-based representation; it is the main reason `iso` is the default.
 - Below serial 60 the epoch is `1899-12-31`, not the `1899-12-30` anchor that only lines up
   *after* the leap-year bug. `serial 0.5` is `1899-12-31T12:00:00.000`.
-- Over the JSON boundary a date cell and a string cell are both strings, and indistinguishable.
-  Unresolved — see below.
+- Untagged, a date cell and a string cell are both strings and indistinguishable. Pass
+  `tagged: true` when that matters.
 
 Cells that already hold an ISO string in the file (ODS throughout, xlsx `t="d"`) are parsed and
 routed through the same policy, so they answer to `dates` like any other cell rather than
@@ -139,7 +170,10 @@ writer applied a local offset. Its reader then applies a *different* fudge and r
 ## Layout
 
 ```
-src/lib.rs                      the binding: 3 boundary strategies, 3 date policies
+src/lib.rs                      the wasm surface: functions and their options
+src/cells.rs                    the cell model — values vs tagged
+src/dates.rs                    date policies, civil time, ISO parsing
+src/output.rs                   objects, CSV, Markdown
 examples/dump_native.rs         reference dumper: raw calamine Data, no opinions applied
 
 bench/make-fixtures.mjs         perf fixtures (small/medium/large)
@@ -151,6 +185,7 @@ bench/check-dates.mjs           11 date cases incl. the 59/60/61 leap-bug bounda
 test/fetch-fixtures.sh          fetches calamine's corpus, pinned to v0.36.1
 test/make-crafted-fixtures.mjs  fixtures for the branches upstream barely reaches
 test/differential.mjs           the corpus, cross-checked against a JS reimplementation
+test/outputs.mjs                tagged cells, objects, CSV, Markdown, option validation
 test/adversarial.mjs            16 hostile inputs + a liveness check after each
 test/zip.mjs                    STORE-only zip writer, for hand-building hostile files
 ```
@@ -187,13 +222,22 @@ helper methods; date *detection* from number formats is always on. `ExcelDateTim
 returns the civil fields directly with millisecond precision and handles the 1900/1904 epochs
 internally, which is both more faithful and 9 KB smaller.
 
-## Open questions
+## What is left
 
-1. **Packaging.** Base64-inline single file vs. `exports` conditions. Decides whether it works
-   on edge/workers unmodified. Currently `--target web`, loaded by hand in the benchmarks.
-2. **API surface.** With the boundary cheap, probably `readSheet(bytes, opts)` returning objects
-   with a header-row mode, rather than raw row arrays.
-3. **Type fidelity at the boundary.** JSON cannot distinguish a date cell from a string cell.
-   That is an argument for the `serde-wasm-bindgen` path despite JSON being the steadier
-   performer, or for a parallel type map.
-4. **Memory ceiling.** 23 MB is fine; the breaking point is not yet known.
+1. **Packaging.** The only thing between this and `npm install`. The plan, modelled on what
+   Automerge, sqlite-wasm and resvg-wasm actually ship: an `exports` map with a `node` entry
+   (`readFileSync` + `initSync`), a `workerd` / `edge-light` entry that imports the `.wasm`
+   as a module, a default entry using `new URL(...)` + `instantiateStreaming` for browsers and
+   bundlers, the raw `.wasm` exposed as a subpath, and base64 as an opt-in `/inline` subpath
+   rather than the default. Measured: `fetch` on a `file://` URL works in Bun 1.3.5 and Deno
+   2.9.3 but not Node 22.18, so Node is the only runtime needing its own entry. Unverified:
+   whether Vercel Edge resolves `edge-light` for this layout — needs a deploy, not more reading.
+2. **Memory ceiling.** Reading the 23 MB fixture settles at ~153 MB of wasm memory, roughly 6.6x
+   the file size, and wasm32 caps at 4 GB. That puts the ceiling somewhere in the low hundreds
+   of MB. Not measured, and worth knowing before someone finds it with a 200 MB export.
+3. **`dates: "temporal"`.** Temporal reached Stage 4 in March 2026 and ships in Node 26; the
+   `iso` output is already exactly what `Temporal.PlainDateTime.from()` accepts, so callers on
+   a modern runtime can convert today. Returning Temporal objects directly measured 314x
+   slower than strings (via `temporal-polyfill`, so native will be better), and Temporal
+   rejects `1900-02-29` just as `Date` does — so the string stays the default and this is an
+   opt-in at most.

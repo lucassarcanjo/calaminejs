@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
-import init, { parse_only, sheet_to_json, sheet_to_jsvalue } from "../pkg/calamine_wasm.js";
+import init, { parseOnly, readCells, readCellsAsValue, toCsv, toMarkdown } from "../pkg/calamine_wasm.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const runtime = typeof Bun !== "undefined" ? `bun ${Bun.version}` : `node ${process.version}`;
@@ -22,18 +22,43 @@ const FIXTURES = [
 const STRATEGIES = [
   {
     label: "wasm: parse only (floor)",
-    run: (buf) => parse_only(buf, undefined),
+    run: (buf) => parseOnly(buf),
     rows: () => null,
   },
   {
     label: "wasm: JSON string + JSON.parse",
-    run: (buf) => JSON.parse(sheet_to_json(buf, undefined)),
+    run: (buf) => JSON.parse(readCells(buf)),
     rows: (r) => r.length,
   },
   {
     label: "wasm: serde-wasm-bindgen",
-    run: (buf) => sheet_to_jsvalue(buf, undefined),
+    run: (buf) => readCellsAsValue(buf),
     rows: (r) => r.length,
+  },
+  {
+    label: "wasm: tagged cells",
+    run: (buf) => JSON.parse(readCells(buf, { tagged: true })),
+    rows: (r) => r.length,
+  },
+  {
+    // The payoff of building this in Rust: one string crosses the boundary,
+    // however many cells the sheet has.
+    label: "wasm: toCsv (one string)",
+    run: (buf) => toCsv(buf),
+    rows: (r) => r.split("\n").length - 1,
+  },
+  {
+    label: "wasm: toMarkdown (one string)",
+    run: (buf) => toMarkdown(buf),
+    rows: (r) => r.split("\n").length - 2,
+  },
+  {
+    label: "SheetJS: read + sheet_to_csv",
+    run: (buf) => {
+      const wb = XLSX.read(buf, { type: "buffer" });
+      return XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+    },
+    rows: (r) => r.split("\n").length - 1,
   },
   {
     label: "SheetJS: read only",

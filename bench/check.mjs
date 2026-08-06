@@ -5,16 +5,16 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
-import init, { sheet_names, sheet_to_json } from "../pkg/calamine_wasm.js";
+import init, { sheetNames, readCells } from "../pkg/calamine_wasm.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 await init({ module_or_path: readFileSync(join(here, "../pkg/calamine_wasm_bg.wasm")) });
 
 const buf = readFileSync(join(here, "fixtures", "small.xlsx"));
 
-console.log("sheet_names:", sheet_names(buf));
+console.log("sheetNames:", sheetNames(buf));
 
-const wasmRows = JSON.parse(sheet_to_json(buf, undefined));
+const wasmRows = JSON.parse(readCells(buf));
 const wb = XLSX.read(buf, { type: "buffer", cellDates: true });
 const sjRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: null });
 

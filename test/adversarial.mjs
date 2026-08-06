@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import init, { sheet_names, sheet_to_json, parse_only } from "../pkg/calamine_wasm.js";
+import init, { sheetNames, readCells, parseOnly } from "../pkg/calamine_wasm.js";
 import { makeXlsx, makeZip, sheet } from "./zip.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,7 +38,7 @@ function attack(name, fn) {
   // The real assertion: is the instance still alive?
   let alive = false;
   try {
-    alive = sheet_names(good).length > 0;
+    alive = sheetNames(good).length > 0;
   } catch {
     alive = false;
   }
@@ -48,24 +48,24 @@ function attack(name, fn) {
 
 const HUGE_DIM = sheet("A1:XFD1048576", '<row r="1"><c r="A1" t="n"><v>1</v></c></row>');
 
-attack("empty buffer", () => sheet_names(Buffer.alloc(0)));
-attack("random bytes", () => sheet_names(Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 37) % 256))));
-attack("truncated xlsx (half)", () => sheet_names(good.subarray(0, good.length >> 1)));
-attack("truncated xlsx (2 bytes)", () => sheet_names(good.subarray(0, 2)));
-attack("xlsx with trailing garbage", () => sheet_names(Buffer.concat([good, Buffer.alloc(1024, 0xff)])));
-attack("csv renamed to xlsx", () => sheet_names(Buffer.from("a,b,c\n1,2,3\n")));
-attack("valid zip, not a workbook", () => sheet_names(makeZip([{ name: "hello.txt", data: "hi" }])));
-attack("workbook with zero sheets", () => sheet_names(makeXlsx(sheet("A1:A1", ""), { sheets: "" })));
-attack("zero sheets -> read first", () => sheet_to_json(makeXlsx(sheet("A1:A1", ""), { sheets: "" })));
-attack("sheet1.xml is not XML", () => sheet_to_json(makeXlsx("this is not xml at all")));
-attack("unclosed XML tag", () => sheet_to_json(makeXlsx('<worksheet><sheetData><row r="1">')));
-attack("nonexistent sheet name", () => sheet_to_json(good, "NoSuchSheet"));
-attack("dimension claims 17bn cells", () => parse_only(makeXlsx(HUGE_DIM)));
-attack("dimension 17bn -> materialise", () => sheet_to_json(makeXlsx(HUGE_DIM)).length);
+attack("empty buffer", () => sheetNames(Buffer.alloc(0)));
+attack("random bytes", () => sheetNames(Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 37) % 256))));
+attack("truncated xlsx (half)", () => sheetNames(good.subarray(0, good.length >> 1)));
+attack("truncated xlsx (2 bytes)", () => sheetNames(good.subarray(0, 2)));
+attack("xlsx with trailing garbage", () => sheetNames(Buffer.concat([good, Buffer.alloc(1024, 0xff)])));
+attack("csv renamed to xlsx", () => sheetNames(Buffer.from("a,b,c\n1,2,3\n")));
+attack("valid zip, not a workbook", () => sheetNames(makeZip([{ name: "hello.txt", data: "hi" }])));
+attack("workbook with zero sheets", () => sheetNames(makeXlsx(sheet("A1:A1", ""), { sheets: "" })));
+attack("zero sheets -> read first", () => readCells(makeXlsx(sheet("A1:A1", ""), { sheets: "" })));
+attack("sheet1.xml is not XML", () => readCells(makeXlsx("this is not xml at all")));
+attack("unclosed XML tag", () => readCells(makeXlsx('<worksheet><sheetData><row r="1">')));
+attack("nonexistent sheet name", () => readCells(good, { sheet: "NoSuchSheet" }));
+attack("dimension claims 17bn cells", () => parseOnly(makeXlsx(HUGE_DIM)));
+attack("dimension 17bn -> materialise", () => readCells(makeXlsx(HUGE_DIM)).length);
 attack("cell ref beyond dimension", () =>
-  sheet_to_json(makeXlsx(sheet("A1:A1", '<row r="1"><c r="ZZ99" t="n"><v>7</v></c></row>'))));
+  readCells(makeXlsx(sheet("A1:A1", '<row r="1"><c r="ZZ99" t="n"><v>7</v></c></row>'))));
 attack("negative serial as date", () =>
-  sheet_to_json(makeXlsx(sheet("A1:A1", '<row r="1"><c r="A1" s="1"><v>-100000</v></c></row>'))));
+  readCells(makeXlsx(sheet("A1:A1", '<row r="1"><c r="A1" s="1"><v>-100000</v></c></row>'))));
 
 console.log(`\n${"attack".padEnd(34)} ${"outcome".padEnd(9)} ${"detail".padEnd(46)} usable after`);
 console.log("─".repeat(110));
@@ -87,7 +87,7 @@ try {
 if (large) {
   const readings = [];
   for (let i = 0; i < 5; i++) {
-    parse_only(large);
+    parseOnly(large);
     readings.push(wasm.memory.buffer.byteLength);
   }
   console.log(`  after each of 5 reads: ${readings.map(mb).join(", ")}`);

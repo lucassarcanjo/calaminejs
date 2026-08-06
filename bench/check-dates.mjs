@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import init, { sheet_to_json } from "../pkg/calamine_wasm.js";
+import init, { readCells } from "../pkg/calamine_wasm.js";
 import { CASES } from "./make-date-fixture.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 await init({ module_or_path: readFileSync(join(here, "../pkg/calamine_wasm_bg.wasm")) });
 
 const buf = readFileSync(join(here, "fixtures", "dates.xlsx"));
-const read = (dates) => JSON.parse(sheet_to_json(buf, undefined, dates)).map((r) => r[1]);
+const read = (dates) => JSON.parse(readCells(buf, { dates })).map((r) => r[1]);
 
 const iso = read("iso");
 const serial = read("serial");
@@ -38,7 +38,7 @@ for (let i = 0; i < CASES.length; i++) {
 
 // The policy is opt-in, so an unknown value must be a loud error, not a default.
 try {
-  sheet_to_json(buf, undefined, "local");
+  readCells(buf, { dates: "local" });
   console.log("\n✗ unknown dates policy was silently accepted");
   failures++;
 } catch (e) {

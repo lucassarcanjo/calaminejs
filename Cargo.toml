@@ -14,8 +14,11 @@ crate-type = ["cdylib", "rlib"]
 # fields directly, with millisecond precision and 1900/1904 handled internally.
 calamine = "0.36"
 wasm-bindgen = "0.2"
+js-sys = "0.3"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# `preserve_order` keeps object keys in sheet-column order. Without it
+# serde_json sorts them alphabetically, which silently rearranges the columns.
+serde_json = { version = "1", features = ["preserve_order"] }
 serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
 
