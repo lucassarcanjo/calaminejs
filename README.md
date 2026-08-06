@@ -4,19 +4,27 @@
 WebAssembly, so the same artifact reads `.xlsx` / `.xls` / `.xlsb` / `.ods` in Node, Bun, Deno,
 browsers and edge runtimes without a native addon or a per-platform prebuild.
 
-**Status: not published.** The API below works and is tested; what is missing is the packaging
-that would let you install it.
+**Status: built and tested, not yet published.** `npm pack` produces a working tarball; the
+version has not been pushed to npm.
 
 ## Using it
 
 ```js
-sheetNames(bytes)                              // ["Sheet1", "Data"]
+import { sheetNames, toCsv, toJson, readCells, toMarkdown, ready } from "calaminejs";
 
-readCells(bytes, { sheet, dates, tagged })     // JSON string: rows of cells
-toJson(bytes, { sheet, dates, tagged, header });// JSON string: rows as objects
-toCsv(bytes, { sheet, dates, delimiter })      // RFC 4180 CSV
-toMarkdown(bytes, { sheet, dates })            // GitHub-flavoured table
+const bytes = new Uint8Array(await file.arrayBuffer());
+
+sheetNames(bytes)                               // ["Sheet1", "Data"]
+readCells(bytes, { sheet, dates, tagged })      // JSON string: rows of cells
+toJson(bytes, { sheet, dates, tagged, header }) // JSON string: rows as objects
+toCsv(bytes, { sheet, dates, delimiter })       // RFC 4180 CSV
+toMarkdown(bytes, { sheet, dates })             // GitHub-flavoured table
 ```
+
+On Node, Bun, Deno and Cloudflare Workers the wasm is loaded synchronously and the functions
+work the moment you import them. In a browser or a bundled app it loads asynchronously, so
+`await ready()` first — that call is resolved everywhere else, so awaiting it always is
+portable.
 
 Every function takes the file as bytes — nothing here touches a filesystem, which is what lets
 one artifact serve Node, Bun, Deno, browsers and edge workers. An unknown option is an error
@@ -174,6 +182,7 @@ src/lib.rs                      the wasm surface: functions and their options
 src/cells.rs                    the cell model — values vs tagged
 src/dates.rs                    date policies, civil time, ISO parsing
 src/output.rs                   objects, CSV, Markdown
+scripts/build.mjs               assembles dist/ from the wasm-pack output
 examples/dump_native.rs         reference dumper: raw calamine Data, no opinions applied
 
 bench/make-fixtures.mjs         perf fixtures (small/medium/large)
@@ -186,6 +195,7 @@ test/fetch-fixtures.sh          fetches calamine's corpus, pinned to v0.36.1
 test/make-crafted-fixtures.mjs  fixtures for the branches upstream barely reaches
 test/differential.mjs           the corpus, cross-checked against a JS reimplementation
 test/outputs.mjs                tagged cells, objects, CSV, Markdown, option validation
+test/entrypoints.mjs            each packaging entry, imported for real in a subprocess
 test/adversarial.mjs            16 hostile inputs + a liveness check after each
 test/zip.mjs                    STORE-only zip writer, for hand-building hostile files
 ```
@@ -197,6 +207,40 @@ bun run test       # cargo test + dates + adversarial + differential
 bun run bench      # or bench:bun
 ```
 
+## How it is packaged
+
+One wasm binary, five entry points, chosen by `exports` conditions. They differ only in how the
+bytes reach the glue, which is the one thing every runtime does differently.
+
+| entry | condition | how the wasm loads |
+|---|---|---|
+| `dist/node.js` | `node` | `node:fs` + `initSync` — synchronous |
+| `dist/workerd.js` | `workerd` | `import wasm from "./…wasm"` — Workers want a compiled Module, not bytes |
+| `dist/streaming.js` | `browser`, `import` | `fetch` + `instantiateStreaming` |
+| `dist/inline.js` | `calaminejs/inline` | base64 in the JS, for builds that cannot ship a companion asset |
+| `dist/slim.js` | `calaminejs/slim` | you supply the bytes or Module |
+
+The raw binary is also exported as `calaminejs/calamine_wasm_bg.wasm`, which is how Workers
+projects and some bundlers prefer to resolve it themselves.
+
+Bun and Deno both resolve the `node` condition and both implement `node:fs`, so all three
+runtimes share the synchronous entry. That is deliberate rather than lazy: `fetch` on a
+`file://` URL works in Bun 1.3.5 and Deno 2.9.3 but **not** Node 22.18, which is precisely why
+Node needs its own entry.
+
+No entry uses top-level await. It would make the package unrequirable from CJS and is
+contagious through bundlers.
+
+Base64 is an opt-in subpath rather than the default. It costs a third more bytes, is parsed as
+JS text on every load, and gives up both streaming compilation and separate caching of the
+binary — none of which buys anything in the runtimes that can load a `.wasm` properly. It adds
+about 130 KB to the published tarball, which is the price of having the escape hatch.
+
+`test/entrypoints.mjs` imports each entry in its own subprocess and makes it read a file. The
+subprocess isolation matters: the entries share one glue module and ES modules are singletons,
+so importing two in one process would let the first initialise the second and hide a broken
+loader.
+
 ## Build and run
 
 Requires Rust 1.88+ (pinned to 1.97.1 in `rust-toolchain.toml`), `wasm-pack`, and `binaryen`
@@ -207,9 +251,10 @@ rustup target add wasm32-unknown-unknown
 brew install wasm-pack binaryen
 
 bun install
-bun run build
-bun run fixtures
+bun run build      # wasm-pack, then assemble dist/
+bun run fixtures   # ~44 MB of test corpus, not committed
 bun run test
+bun run bench
 ```
 
 ## Notes on the build
@@ -224,18 +269,16 @@ internally, which is both more faithful and 9 KB smaller.
 
 ## What is left
 
-1. **Packaging.** The only thing between this and `npm install`. The plan, modelled on what
-   Automerge, sqlite-wasm and resvg-wasm actually ship: an `exports` map with a `node` entry
-   (`readFileSync` + `initSync`), a `workerd` / `edge-light` entry that imports the `.wasm`
-   as a module, a default entry using `new URL(...)` + `instantiateStreaming` for browsers and
-   bundlers, the raw `.wasm` exposed as a subpath, and base64 as an opt-in `/inline` subpath
-   rather than the default. Measured: `fetch` on a `file://` URL works in Bun 1.3.5 and Deno
-   2.9.3 but not Node 22.18, so Node is the only runtime needing its own entry. Unverified:
-   whether Vercel Edge resolves `edge-light` for this layout — needs a deploy, not more reading.
-2. **Memory ceiling.** Reading the 23 MB fixture settles at ~153 MB of wasm memory, roughly 6.6x
+1. **Vercel Edge.** Deliberately not handled. `workerd` covers Cloudflare; whether Vercel
+   resolves `edge-light` for this layout needs a deploy to find out, not more reading. Adding
+   the condition is a one-line change once someone checks.
+2. **Verify in a real browser and a real Worker.** The entry points are tested by importing
+   them, but only under Node. The streaming path is exercised for its failure mode there, not
+   its success path.
+3. **Memory ceiling.** Reading the 23 MB fixture settles at ~153 MB of wasm memory, roughly 6.6x
    the file size, and wasm32 caps at 4 GB. That puts the ceiling somewhere in the low hundreds
    of MB. Not measured, and worth knowing before someone finds it with a 200 MB export.
-3. **`dates: "temporal"`.** Temporal reached Stage 4 in March 2026 and ships in Node 26; the
+4. **`dates: "temporal"`.** Temporal reached Stage 4 in March 2026 and ships in Node 26; the
    `iso` output is already exactly what `Temporal.PlainDateTime.from()` accepts, so callers on
    a modern runtime can convert today. Returning Temporal objects directly measured 314x
    slower than strings (via `temporal-polyfill`, so native will be better), and Temporal

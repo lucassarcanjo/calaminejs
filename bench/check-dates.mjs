@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import init, { readCells } from "../pkg/calamine_wasm.js";
+import { readCells } from "../dist/node.js";
 import { CASES } from "./make-date-fixture.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-await init({ module_or_path: readFileSync(join(here, "../pkg/calamine_wasm_bg.wasm")) });
 
 const buf = readFileSync(join(here, "fixtures", "dates.xlsx"));
 const read = (dates) => JSON.parse(readCells(buf, { dates })).map((r) => r[1]);

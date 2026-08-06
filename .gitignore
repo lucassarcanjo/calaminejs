@@ -1,8 +1,9 @@
 # Rust
 /target
 
-# wasm-pack output
+# wasm-pack output, and the assembled package built from it
 /pkg
+/dist
 
 # node (bun.lock is committed for reproducible installs)
 node_modules

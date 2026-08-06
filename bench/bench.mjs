@@ -6,12 +6,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
-import init, { parseOnly, readCells, readCellsAsValue, toCsv, toMarkdown } from "../pkg/calamine_wasm.js";
+import init, { parseOnly, readCells, readCellsAsValue, toCsv, toMarkdown } from "../dist/calamine_wasm.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const runtime = typeof Bun !== "undefined" ? `bun ${Bun.version}` : `node ${process.version}`;
 
-await init({ module_or_path: readFileSync(join(here, "../pkg/calamine_wasm_bg.wasm")) });
+await init({ module_or_path: readFileSync(join(here, "../dist/calamine_wasm_bg.wasm")) });
 
 const FIXTURES = [
   { name: "small", iters: 20 },

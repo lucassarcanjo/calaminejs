@@ -115,8 +115,14 @@ writeFileSync(
   ),
 );
 
-// `err` saw 70 cells in the corpus but not every variant; cover all eight.
-const ERRORS = ["#DIV/0!", "#N/A", "#NAME?", "#NULL!", "#NUM!", "#REF!", "#VALUE!", "#DATA!"];
+// `err` saw 70 cells in the corpus but not every variant.
+//
+// "#DATA!" is deliberately absent. calamine has a CellErrorType::GettingData
+// that prints as "#DATA!", but its xlsx reader rejects that spelling on the way
+// in — a sheet containing one fails to read entirely. Including it made this
+// whole fixture unreadable, and the differential harness counted that as both
+// sides agreeing, so none of the other seven were ever checked.
+const ERRORS = ["#DIV/0!", "#N/A", "#NAME?", "#NULL!", "#NUM!", "#REF!", "#VALUE!"];
 writeFileSync(
   join(outDir, "errors.xlsx"),
   makeXlsx(
@@ -151,4 +157,4 @@ console.log(
   `  dates: ${GOOD_DATES.length} understood + ${BAD_DATES.length} must-pass-through (x2 formats)`,
 );
 console.log(`  durations: ${GOOD_DURATIONS.length} understood + ${BAD_DURATIONS.length} must-pass-through`);
-console.log(`  errors: all ${ERRORS.length} CellErrorType variants`);
+console.log(`  errors: ${ERRORS.length} CellErrorType variants (all but #DATA!, see above)`);

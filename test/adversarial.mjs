@@ -10,12 +10,12 @@ import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import init, { sheetNames, readCells, parseOnly } from "../pkg/calamine_wasm.js";
+import init, { sheetNames, readCells, parseOnly } from "../dist/calamine_wasm.js";
 import { makeXlsx, makeZip, sheet } from "./zip.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const wasm = await init({
-  module_or_path: readFileSync(join(here, "../pkg/calamine_wasm_bg.wasm")),
+  module_or_path: readFileSync(join(here, "../dist/calamine_wasm_bg.wasm")),
 });
 
 const good = readFileSync(join(here, "../bench/fixtures/dates.xlsx"));

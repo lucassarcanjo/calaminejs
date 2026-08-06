@@ -5,11 +5,10 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import init, { readCells, toCsv, toJson, toMarkdown } from "../pkg/calamine_wasm.js";
+import { readCells, toCsv, toJson, toMarkdown } from "../dist/node.js";
 import { makeXlsx, sheet } from "./zip.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-await init({ module_or_path: readFileSync(join(here, "../pkg/calamine_wasm_bg.wasm")) });
 
 const str = (r, c, v) => `<c r="${c}${r}" t="inlineStr"><is><t>${v}</t></is></c>`;
 const num = (r, c, v) => `<c r="${c}${r}"><v>${v}</v></c>`;

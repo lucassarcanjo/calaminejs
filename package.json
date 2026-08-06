@@ -1,15 +1,58 @@
 {
-  "name": "calaminejs-spike",
+  "name": "calaminejs",
+  "version": "0.1.0",
+  "description": "Fast xlsx/xls/xlsb/ods reader \u2014 calamine compiled to WebAssembly. One artifact for Node, Bun, Deno, browsers and edge workers.",
+  "license": "MIT",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "./dist/node.js",
+    "./dist/workerd.js",
+    "./dist/inline.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "workerd": "./dist/workerd.js",
+      "node": "./dist/node.js",
+      "browser": "./dist/streaming.js",
+      "import": "./dist/streaming.js"
+    },
+    "./slim": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/slim.js"
+    },
+    "./inline": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/inline.js"
+    },
+    "./calamine_wasm_bg.wasm": "./dist/calamine_wasm_bg.wasm",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "build": "wasm-pack build --release --target web --out-dir pkg",
+    "build": "node scripts/build.mjs",
+    "build:fast": "node scripts/build.mjs --no-wasm",
     "fixtures": "node bench/make-fixtures.mjs && node bench/make-date-fixture.mjs && ./test/fetch-fixtures.sh && node test/make-crafted-fixtures.mjs",
-    "test": "cargo test && node bench/check-dates.mjs && node test/outputs.mjs && node test/adversarial.mjs && node test/differential.mjs",
+    "test": "cargo test && node bench/check-dates.mjs && node test/outputs.mjs && node test/entrypoints.mjs && node test/adversarial.mjs && node test/differential.mjs",
     "test:differential": "cargo build --release --example dump_native && node test/differential.mjs",
     "bench": "node bench/bench.mjs",
     "bench:bun": "bun bench/bench.mjs"
   },
+  "keywords": [
+    "xlsx",
+    "xls",
+    "xlsb",
+    "ods",
+    "excel",
+    "spreadsheet",
+    "wasm",
+    "calamine"
+  ],
   "devDependencies": {
     "xlsx": "^0.18.5"
   }
