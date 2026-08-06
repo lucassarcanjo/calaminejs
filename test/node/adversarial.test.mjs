@@ -8,17 +8,14 @@
 // not just the one call.
 import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import init, { sheetNames, readCells, parseOnly } from "../dist/calamine_wasm.js";
-import { makeXlsx, makeZip, sheet } from "./zip.mjs";
+import { join } from "node:path";
+import init, { sheetNames, readCells, parseOnly } from "../../dist/calamine_wasm.js";
+import { makeXlsx, makeZip, sheet } from "../support/zip.mjs";
+import { benchFixtures, datesFixture, dist } from "../support/paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const wasm = await init({
-  module_or_path: readFileSync(join(here, "../dist/calamine_wasm_bg.wasm")),
-});
+const wasm = await init({ module_or_path: readFileSync(join(dist, "calamine_wasm_bg.wasm")) });
 
-const good = readFileSync(join(here, "../bench/fixtures/dates.xlsx"));
+const good = readFileSync(datesFixture);
 const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
 
 let failures = 0;
@@ -77,7 +74,7 @@ for (const r of results) {
 
 // Memory does not shrink in wasm. Repeated large reads should plateau, not climb.
 console.log("\nmemory growth across repeated reads of the 23 MB fixture");
-const largePath = join(here, "../bench/fixtures/large.xlsx");
+const largePath = join(benchFixtures, "large.xlsx");
 let large;
 try {
   large = readFileSync(largePath);

@@ -2,14 +2,12 @@
 // focus on the type mix. Dates are the interesting column: xlsx stores them as
 // serial numbers, so whatever we return here is an API decision.
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import * as XLSX from "xlsx";
-import { sheetNames, readCells } from "../dist/node.js";
+import { sheetNames, readCells } from "../../dist/node.js";
+import { benchFixtures } from "../support/paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-const buf = readFileSync(join(here, "fixtures", "small.xlsx"));
+const buf = readFileSync(join(benchFixtures, "small.xlsx"));
 
 console.log("sheetNames:", sheetNames(buf));
 

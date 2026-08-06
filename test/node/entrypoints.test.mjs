@@ -11,13 +11,17 @@
 // let the first initialise the second and hide a broken loader.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { crafted, dist, fixtures, root } from "../support/paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const root = join(here, "..");
-const scratch = join(here, "fixtures", "entrypoint-probe.mjs");
-const fixture = join(here, "fixtures", "crafted", "errors.xlsx");
+// Absolute file URLs, not relative specifiers: the probe is written into
+// test/fixtures/, so a relative path would resolve from there rather than from
+// this file — which is exactly the kind of thing this suite exists to catch.
+const entry = (name) => JSON.stringify(pathToFileURL(join(dist, name)).href);
+
+const scratch = join(fixtures, "entrypoint-probe.mjs");
+const fixture = join(crafted, "errors.xlsx");
 
 let failures = 0;
 function check(name, ok, detail = "") {
@@ -31,11 +35,11 @@ if (!existsSync(fixture)) {
 }
 
 /** Runs a snippet in a fresh process so no other entry can have initialised the glue. */
-function probe(entry, { awaitReady }) {
+function probe(entryName, { awaitReady }) {
   writeFileSync(
     scratch,
     `import { readFileSync } from "node:fs";
-import { sheetNames, toCsv, ready } from "${entry}";
+import { sheetNames, toCsv, ready } from ${entry(entryName)};
 ${awaitReady ? "await ready();" : ""}
 const bytes = readFileSync(${JSON.stringify(fixture)});
 const names = sheetNames(bytes);
@@ -48,7 +52,7 @@ console.log(JSON.stringify({ names, firstLine: csv.split("\\n")[0] }));
 
 // ── node entry: must be usable the instant it is imported ───────────────────
 try {
-  const out = probe("../../dist/node.js", { awaitReady: false });
+  const out = probe("node.js", { awaitReady: false });
   check("node entry works without awaiting anything", out.names[0] === "Sheet1", JSON.stringify(out.names));
   check("node entry reads cells", out.firstLine === "#DIV/0!", out.firstLine);
 } catch (e) {
@@ -57,7 +61,7 @@ try {
 
 // ── inline entry: same, with the wasm carried as base64 ─────────────────────
 try {
-  const out = probe("../../dist/inline.js", { awaitReady: false });
+  const out = probe("inline.js", { awaitReady: false });
   check("inline entry works with no companion file", out.firstLine === "#DIV/0!", out.firstLine);
 } catch (e) {
   check("inline entry works with no companion file", false, String(e.stderr ?? e).slice(0, 120));
@@ -65,7 +69,7 @@ try {
 
 // ── streaming entry: async, and must say so clearly if used too early ───────
 try {
-  const out = probe("../../dist/streaming.js", { awaitReady: true });
+  const out = probe("streaming.js", { awaitReady: true });
   check("streaming entry works after ready()", out.firstLine === "#DIV/0!", out.firstLine);
 } catch (e) {
   // Node cannot fetch a file:// URL, so this entry is not expected to work
@@ -80,7 +84,7 @@ try {
 // ── streaming entry: the error before ready() must be actionable ────────────
 writeFileSync(
   scratch,
-  `import { sheetNames } from "../../dist/streaming.js";
+  `import { sheetNames } from ${entry("streaming.js")};
 try { sheetNames(new Uint8Array()); console.log("NO ERROR"); }
 catch (e) { console.log(e.message); }
 `,
@@ -92,8 +96,8 @@ check("calling before ready() explains itself", early.includes("await ready()"),
 writeFileSync(
   scratch,
   `import { readFileSync } from "node:fs";
-import { initSync, sheetNames } from "../../dist/slim.js";
-initSync({ module: readFileSync("dist/calamine_wasm_bg.wasm") });
+import { initSync, sheetNames } from ${entry("slim.js")};
+initSync({ module: readFileSync(${JSON.stringify(join(dist, "calamine_wasm_bg.wasm"))}) });
 console.log(JSON.stringify(sheetNames(readFileSync(${JSON.stringify(fixture)}))));
 `,
 );

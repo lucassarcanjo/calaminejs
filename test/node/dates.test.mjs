@@ -1,12 +1,9 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { readCells } from "../dist/node.js";
-import { CASES } from "./make-date-fixture.mjs";
+import { readCells } from "../../dist/node.js";
+import { CASES } from "../support/make-date-fixture.mjs";
+import { datesFixture } from "../support/paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-
-const buf = readFileSync(join(here, "fixtures", "dates.xlsx"));
+const buf = readFileSync(datesFixture);
 const read = (dates) => JSON.parse(readCells(buf, { dates })).map((r) => r[1]);
 
 const iso = read("iso");

@@ -2,12 +2,10 @@
 // booleans and holes. Holes matter — sparse sheets exercise a different path in
 // both calamine and SheetJS than dense ones do.
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import * as XLSX from "xlsx";
+import { benchFixtures as outDir } from "../test/support/paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, "fixtures");
 mkdirSync(outDir, { recursive: true });
 
 const SIZES = [

@@ -3,15 +3,14 @@
 // is the wasm/JS boundary? `parse only` is the floor; anything above it is what
 // the boundary costs.
 import { readFileSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import * as XLSX from "xlsx";
 import init, { parseOnly, readCells, readCellsAsValue, toCsv, toMarkdown } from "../dist/calamine_wasm.js";
+import { benchFixtures, dist } from "../test/support/paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
 const runtime = typeof Bun !== "undefined" ? `bun ${Bun.version}` : `node ${process.version}`;
 
-await init({ module_or_path: readFileSync(join(here, "../dist/calamine_wasm_bg.wasm")) });
+await init({ module_or_path: readFileSync(join(dist, "calamine_wasm_bg.wasm")) });
 
 const FIXTURES = [
   { name: "small", iters: 20 },
@@ -86,7 +85,7 @@ const fmt = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : `${ms.toFixed(
 console.log(`\nruntime: ${runtime}\n`);
 
 for (const { name, iters } of FIXTURES) {
-  const path = join(here, "fixtures", `${name}.xlsx`);
+  const path = join(benchFixtures, `${name}.xlsx`);
   if (!existsSync(path)) {
     console.log(`${name}: missing fixture, run \`node bench/make-fixtures.mjs\` first`);
     continue;

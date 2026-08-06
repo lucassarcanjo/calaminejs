@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>calaminejs browser harness</title>
+  </head>
+  <body>
+    <p>Harness page. The suite drives this from Playwright.</p>
+
+    <!--
+      Nothing is imported at load time. Each test imports the entry it is
+      interested in, from a fresh page, because the entries share one glue
+      module and ES modules are singletons — importing two in one page would
+      let the first initialise the second and hide a broken loader.
+    -->
+    <script type="module">
+      window.loadEntry = async (name) => {
+        const mod = await import(`/dist/${name}`);
+        window.calamine = mod;
+        return Object.keys(mod).sort();
+      };
+
+      window.fetchFixture = async (path) => {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`fixture ${path}: HTTP ${response.status}`);
+        return new Uint8Array(await response.arrayBuffer());
+      };
+    </script>
+  </body>
+</html>

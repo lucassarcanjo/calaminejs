@@ -37,9 +37,12 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:fast": "node scripts/build.mjs --no-wasm",
-    "fixtures": "node bench/make-fixtures.mjs && node bench/make-date-fixture.mjs && ./test/fetch-fixtures.sh && node test/make-crafted-fixtures.mjs",
-    "test": "cargo test && node bench/check-dates.mjs && node test/outputs.mjs && node test/entrypoints.mjs && node test/adversarial.mjs && node test/differential.mjs",
-    "test:differential": "cargo build --release --example dump_native && node test/differential.mjs",
+    "fixtures": "node bench/make-fixtures.mjs && node test/support/make-date-fixture.mjs && ./test/support/fetch-fixtures.sh && node test/support/make-crafted-fixtures.mjs",
+    "test": "bun run test:rust && bun run test:node && bun run test:browser",
+    "test:rust": "cargo test",
+    "test:node": "for f in test/node/*.test.mjs; do echo \"\u2500\u2500 $f\"; node \"$f\" || exit 1; done",
+    "test:browser": "playwright test",
+    "test:worker": "echo 'not implemented \u2014 see test/worker/README.md'",
     "bench": "node bench/bench.mjs",
     "bench:bun": "bun bench/bench.mjs"
   },
@@ -54,6 +57,7 @@
     "calamine"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "xlsx": "^0.18.5"
   }
 }

@@ -2,13 +2,8 @@
 // to break a naive implementation: a comma, a quote, a pipe, an embedded
 // newline, a duplicate header, a blank header, an error cell, a real date and
 // text that looks exactly like one.
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { readCells, toCsv, toJson, toMarkdown } from "../dist/node.js";
-import { makeXlsx, sheet } from "./zip.mjs";
-
-const here = dirname(fileURLToPath(import.meta.url));
+import { readCells, toCsv, toJson, toMarkdown } from "../../dist/node.js";
+import { makeXlsx, sheet } from "../support/zip.mjs";
 
 const str = (r, c, v) => `<c r="${c}${r}" t="inlineStr"><is><t>${v}</t></is></c>`;
 const num = (r, c, v) => `<c r="${c}${r}"><v>${v}</v></c>`;

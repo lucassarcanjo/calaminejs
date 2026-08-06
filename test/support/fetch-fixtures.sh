@@ -8,7 +8,7 @@
 set -euo pipefail
 
 TAG="v0.36.1"
-DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/calamine"
+DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/calamine"
 
 if [ -d "$DEST" ] && [ -f "$DEST/.tag" ] && [ "$(cat "$DEST/.tag")" = "$TAG" ]; then
   echo "corpus already at $TAG ($(find "$DEST" -type f ! -name '.tag' | wc -l | tr -d ' ') files)"

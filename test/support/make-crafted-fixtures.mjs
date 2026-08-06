@@ -7,12 +7,10 @@
 // the identical treatment: dumped natively, re-read through wasm, and checked
 // against an expectation recomputed in JS.
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { makeXlsx, makeZip, sheet } from "./zip.mjs";
+import { crafted as outDir } from "./paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, "fixtures", "crafted");
 mkdirSync(outDir, { recursive: true });
 
 // ── ODS: the format that actually produces dtiso / duriso ────────────────────

@@ -185,20 +185,17 @@ src/output.rs                   objects, CSV, Markdown
 scripts/build.mjs               assembles dist/ from the wasm-pack output
 examples/dump_native.rs         reference dumper: raw calamine Data, no opinions applied
 
-bench/make-fixtures.mjs         perf fixtures (small/medium/large)
-bench/make-date-fixture.mjs     date fixture, written as raw serials so the bytes are known
-bench/bench.mjs                 the benchmark, runs identically under Node and Bun
-bench/check.mjs                 structural comparison against SheetJS
-bench/check-dates.mjs           11 date cases incl. the 59/60/61 leap-bug boundary
-
-test/fetch-fixtures.sh          fetches calamine's corpus, pinned to v0.36.1
-test/make-crafted-fixtures.mjs  fixtures for the branches upstream barely reaches
-test/differential.mjs           the corpus, cross-checked against a JS reimplementation
-test/outputs.mjs                tagged cells, objects, CSV, Markdown, option validation
-test/entrypoints.mjs            each packaging entry, imported for real in a subprocess
-test/adversarial.mjs            16 hostile inputs + a liveness check after each
-test/zip.mjs                    STORE-only zip writer, for hand-building hostile files
+bench/                          benchmarks and their large fixtures
+test/support/                   shared helpers, fixture builders, paths
+test/node/                      suites that run under Node
+test/browser/                   Playwright, against a real engine over real HTTP
+test/worker/                    Cloudflare Workers — not implemented, see its README
 ```
+
+Tests are organised by **where the code runs**, because that is what actually varies — the
+parser is identical everywhere, and what differs is how the wasm reaches it. Adding a runtime
+means adding a sibling directory rather than threading a conditional through an existing suite.
+[`test/README.md`](test/README.md) has the detail.
 
 ```sh
 bun run fixtures   # fetch + generate everything (~44 MB, not committed)
@@ -236,10 +233,14 @@ JS text on every load, and gives up both streaming compilation and separate cach
 binary — none of which buys anything in the runtimes that can load a `.wasm` properly. It adds
 about 130 KB to the published tarball, which is the price of having the escape hatch.
 
-`test/entrypoints.mjs` imports each entry in its own subprocess and makes it read a file. The
-subprocess isolation matters: the entries share one glue module and ES modules are singletons,
-so importing two in one process would let the first initialise the second and hide a broken
-loader.
+`test/node/entrypoints.test.mjs` imports each entry in its own subprocess and makes it read a
+file; `test/browser/` does the same in a real Chromium over real HTTP, including inside a Web
+Worker. The isolation matters: the entries share one glue module and ES modules are singletons,
+so importing two in one process — or one page — would let the first initialise the second and
+hide a broken loader.
+
+The browser suite is the only place the streaming path is exercised for real. Under Node it can
+only be shown to *fail*, which is the reason the `node` condition exists.
 
 ## Build and run
 
@@ -272,9 +273,10 @@ internally, which is both more faithful and 9 KB smaller.
 1. **Vercel Edge.** Deliberately not handled. `workerd` covers Cloudflare; whether Vercel
    resolves `edge-light` for this layout needs a deploy to find out, not more reading. Adding
    the condition is a one-line change once someone checks.
-2. **Verify in a real browser and a real Worker.** The entry points are tested by importing
-   them, but only under Node. The streaming path is exercised for its failure mode there, not
-   its success path.
+2. **A real Worker.** `dist/workerd.js` is the last untested entry, and the one that differs
+   most: it imports the `.wasm` as a module rather than reading or fetching it, which only the
+   Workers toolchain resolves. [`test/worker/README.md`](test/worker/README.md) sets out what
+   to build with Miniflare and what it should prove.
 3. **Memory ceiling.** Reading the 23 MB fixture settles at ~153 MB of wasm memory, roughly 6.6x
    the file size, and wasm32 caps at 4 GB. That puts the ceiling somewhere in the low hundreds
    of MB. Not measured, and worth knowing before someone finds it with a 200 MB export.

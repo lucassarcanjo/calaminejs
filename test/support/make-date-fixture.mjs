@@ -6,13 +6,10 @@
 // date correctness. Here we write the raw serial and the number format
 // directly, bypassing any Date conversion, so the bytes on disk are known.
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import * as XLSX from "xlsx";
+import { datesFixture, fixtures } from "./paths.mjs";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, "fixtures");
-mkdirSync(outDir, { recursive: true });
+mkdirSync(fixtures, { recursive: true });
 
 // `kind` is what the cell *is*, which decides how to read the output:
 // a duration is a length of time, not a point on a calendar.
@@ -48,6 +45,5 @@ for (let i = 0; i < CASES.length; i++) {
 
 const wb = XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(wb, ws, "Dates");
-const path = join(outDir, "dates.xlsx");
-writeFileSync(path, XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
-console.log(`wrote ${path} (${CASES.length} cases)`);
+writeFileSync(datesFixture, XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+console.log(`wrote ${datesFixture} (${CASES.length} cases)`);

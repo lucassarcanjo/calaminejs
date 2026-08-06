@@ -14,3 +14,7 @@ node_modules
 
 # Fetched from tafia/calamine (21 MB) and generated. `bun run fixtures`.
 /test/fixtures
+
+# Playwright
+/test-results
+/playwright-report
