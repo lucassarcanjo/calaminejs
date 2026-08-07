@@ -269,6 +269,17 @@ The pinned toolchain is installed explicitly rather than by trusting rustup to p
 `rust-toolchain.toml`, since that behaviour has varied by rustup version. The channel, target
 and components still come from that file; the workflow does not restate the version.
 
+**binaryen is pinned to 131 and downloaded, not `apt install`ed.** Ubuntu noble still ships
+binaryen 108, from 2022, and that `wasm-opt` mangles the externref table wasm-bindgen emits.
+The result is a binary that cannot instantiate at all — failing with
+`WebAssembly.Table.grow(): failed to grow table by 4`, an error whose stack points nowhere near
+the cause. It does this silently, so the build reports success and two downstream jobs fail
+instead.
+
+`bun run smoke` is the guard: it imports the built package and reads a real file, so a build
+that emits an unusable artifact fails at the build. It is checked against the actual broken
+binary, not just the good one — the failure path is the part that matters.
+
 Benchmarks deliberately do not run in CI. Shared runners are too noisy for the numbers to mean
 anything.
 

@@ -37,6 +37,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:fast": "node scripts/build.mjs --no-wasm",
+    "smoke": "node scripts/smoke.mjs",
     "fixtures": "bun run fixtures:small && node bench/make-fixtures.mjs medium large",
     "test": "bun run test:rust && bun run test:node && bun run test:browser",
     "test:rust": "cargo test",
