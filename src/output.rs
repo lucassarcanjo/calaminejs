@@ -66,7 +66,11 @@ pub fn to_arrays(range: &Range<Data>, policy: DatePolicy, tagged: bool) -> Value
         range
             .rows()
             .map(|row| {
-                Value::Array(row.iter().map(|c| cell_to_json(c, policy, tagged)).collect())
+                Value::Array(
+                    row.iter()
+                        .map(|c| cell_to_json(c, policy, tagged))
+                        .collect(),
+                )
             })
             .collect(),
     )
@@ -238,9 +242,12 @@ mod tests {
 
     #[test]
     fn csv_quotes_only_what_needs_it() {
-        let r = range(vec![
-            vec![s("plain"), s("has,comma"), s("has\"quote"), s("has\nnewline")],
-        ]);
+        let r = range(vec![vec![
+            s("plain"),
+            s("has,comma"),
+            s("has\"quote"),
+            s("has\nnewline"),
+        ]]);
         assert_eq!(
             to_csv(&r, DatePolicy::Iso, ','),
             "plain,\"has,comma\",\"has\"\"quote\",\"has\nnewline\"\n"

@@ -242,6 +242,36 @@ hide a broken loader.
 The browser suite is the only place the streaming path is exercised for real. Under Node it can
 only be shown to *fail*, which is the reason the `node` condition exists.
 
+## CI
+
+Four jobs on push to `main` and on every pull request.
+
+| job | what it does |
+|---|---|
+| `build` | compiles the wasm once and uploads `dist/` plus the native reference dumper |
+| `rust` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` |
+| `node` | downloads the artifacts, fetches the corpus, runs the six Node suites |
+| `browser` | downloads `dist/`, installs Chromium, runs Playwright |
+
+The wasm is built **once** and shared. Building it per job would triple the slowest step for no
+extra signal, and would let the Node and browser suites test two separately-compiled binaries —
+which is exactly the class of difference this repo keeps finding by accident.
+
+`node` needs the native `dump_native` binary for the differential pass, so `build` produces it
+too. That keeps Rust out of the `node` job entirely.
+
+Two things are cached: calamine's corpus, keyed on the hash of `fetch-fixtures.sh` so bumping
+the pinned tag misses on purpose; and the Playwright browsers, keyed on the lockfile. CI only
+generates the `small` benchmark fixture — the 23 MB one is a minute of nothing useful there,
+which is why `make-fixtures.mjs` takes sizes as arguments.
+
+The pinned toolchain is installed explicitly rather than by trusting rustup to pick it up from
+`rust-toolchain.toml`, since that behaviour has varied by rustup version. The channel, target
+and components still come from that file; the workflow does not restate the version.
+
+Benchmarks deliberately do not run in CI. Shared runners are too noisy for the numbers to mean
+anything.
+
 ## Build and run
 
 Requires Rust 1.88+ (pinned to 1.97.1 in `rust-toolchain.toml`), `wasm-pack`, and `binaryen`

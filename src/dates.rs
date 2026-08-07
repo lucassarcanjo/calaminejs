@@ -68,7 +68,15 @@ pub struct Civil {
 impl Civil {
     pub fn from_excel(dt: &ExcelDateTime) -> Self {
         let (y, mo, d, h, mi, s, ms) = dt.to_ymd_hms_milli();
-        Self { y: y as i64, mo, d, h, mi, s, ms }
+        Self {
+            y: y as i64,
+            mo,
+            d,
+            h,
+            mi,
+            s,
+            ms,
+        }
     }
 
     fn millis_of_day(&self) -> i64 {
@@ -76,7 +84,15 @@ impl Civil {
     }
 
     pub fn to_iso(self) -> String {
-        let Civil { y, mo, d, h, mi, s, ms } = self;
+        let Civil {
+            y,
+            mo,
+            d,
+            h,
+            mi,
+            s,
+            ms,
+        } = self;
         format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}.{ms:03}")
     }
 
@@ -158,7 +174,15 @@ pub fn parse_iso_datetime(s: &str) -> Option<Civil> {
     if !(1..=12).contains(&mo) || !(1..=31).contains(&d) || h > 23 || mi > 59 || sec > 59 {
         return None;
     }
-    Some(Civil { y, mo, d, h, mi, s: sec, ms })
+    Some(Civil {
+        y,
+        mo,
+        d,
+        h,
+        mi,
+        s: sec,
+        ms,
+    })
 }
 
 /// Parses `PT36H0M0S` / `-PT1H30M` / `P1DT2H` into days, matching the units
@@ -267,13 +291,28 @@ mod tests {
     #[test]
     fn parses_iso_datetimes() {
         assert_eq!(iso("2020-01-01").unwrap(), "2020-01-01T00:00:00.000");
-        assert_eq!(iso("2020-01-01T12:34:56").unwrap(), "2020-01-01T12:34:56.000");
+        assert_eq!(
+            iso("2020-01-01T12:34:56").unwrap(),
+            "2020-01-01T12:34:56.000"
+        );
         // Fractional seconds are left-aligned to milliseconds, not read as an integer.
-        assert_eq!(iso("2020-01-01T12:34:56.5").unwrap(), "2020-01-01T12:34:56.500");
-        assert_eq!(iso("2020-01-01T12:34:56.25").unwrap(), "2020-01-01T12:34:56.250");
-        assert_eq!(iso("2020-01-01T12:34:56.123456").unwrap(), "2020-01-01T12:34:56.123");
+        assert_eq!(
+            iso("2020-01-01T12:34:56.5").unwrap(),
+            "2020-01-01T12:34:56.500"
+        );
+        assert_eq!(
+            iso("2020-01-01T12:34:56.25").unwrap(),
+            "2020-01-01T12:34:56.250"
+        );
+        assert_eq!(
+            iso("2020-01-01T12:34:56.123456").unwrap(),
+            "2020-01-01T12:34:56.123"
+        );
         // A space separator shows up in the wild.
-        assert_eq!(iso("2020-01-01 12:34:56").unwrap(), "2020-01-01T12:34:56.000");
+        assert_eq!(
+            iso("2020-01-01 12:34:56").unwrap(),
+            "2020-01-01T12:34:56.000"
+        );
     }
 
     #[test]
