@@ -16,9 +16,7 @@
 use calamine::Data;
 use serde_json::{json, Value};
 
-use crate::dates::{
-    duration_to_json, parse_iso_datetime, parse_iso_duration, Civil, DatePolicy,
-};
+use crate::dates::{duration_to_json, parse_iso_datetime, parse_iso_duration, Civil, DatePolicy};
 
 /// Classifies a cell into a tag plus its value under the given date policy.
 fn classify(cell: &Data, policy: DatePolicy) -> (&'static str, Value) {
@@ -92,18 +90,29 @@ mod tests {
     use calamine::{CellErrorType, ExcelDateTime, ExcelDateTimeType};
 
     fn date(serial: f64) -> Data {
-        Data::DateTime(ExcelDateTime::new(serial, ExcelDateTimeType::DateTime, false))
+        Data::DateTime(ExcelDateTime::new(
+            serial,
+            ExcelDateTimeType::DateTime,
+            false,
+        ))
     }
 
     fn duration(days: f64) -> Data {
-        Data::DateTime(ExcelDateTime::new(days, ExcelDateTimeType::TimeDelta, false))
+        Data::DateTime(ExcelDateTime::new(
+            days,
+            ExcelDateTimeType::TimeDelta,
+            false,
+        ))
     }
 
     #[test]
     fn values_shape_is_bare() {
         let p = DatePolicy::Iso;
         assert_eq!(cell_to_json(&Data::Float(1.5), p, false), json!(1.5));
-        assert_eq!(cell_to_json(&Data::String("a".into()), p, false), json!("a"));
+        assert_eq!(
+            cell_to_json(&Data::String("a".into()), p, false),
+            json!("a")
+        );
         assert_eq!(cell_to_json(&Data::Empty, p, false), Value::Null);
     }
 
@@ -113,7 +122,10 @@ mod tests {
         // The whole reason the tagged shape exists.
         let real_date = cell_to_json(&date(43831.0), p, true);
         let text = cell_to_json(&Data::String("2020-01-01T00:00:00.000".into()), p, true);
-        assert_eq!(real_date, json!({ "t": "date", "v": "2020-01-01T00:00:00.000" }));
+        assert_eq!(
+            real_date,
+            json!({ "t": "date", "v": "2020-01-01T00:00:00.000" })
+        );
         assert_eq!(text, json!({ "t": "str", "v": "2020-01-01T00:00:00.000" }));
         assert_ne!(real_date, text);
 
@@ -127,7 +139,10 @@ mod tests {
 
     #[test]
     fn empty_stays_null_even_when_tagged() {
-        assert_eq!(cell_to_json(&Data::Empty, DatePolicy::Iso, true), Value::Null);
+        assert_eq!(
+            cell_to_json(&Data::Empty, DatePolicy::Iso, true),
+            Value::Null
+        );
     }
 
     #[test]

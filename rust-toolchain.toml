@@ -1,3 +1,6 @@
 [toolchain]
 channel = "1.97.1"
 targets = ["wasm32-unknown-unknown"]
+# Listed here so CI installs them from the pinned toolchain rather than
+# restating the version in a workflow file.
+components = ["rustfmt", "clippy"]

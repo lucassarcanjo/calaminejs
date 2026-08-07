@@ -37,14 +37,16 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:fast": "node scripts/build.mjs --no-wasm",
-    "fixtures": "node bench/make-fixtures.mjs && node test/support/make-date-fixture.mjs && ./test/support/fetch-fixtures.sh && node test/support/make-crafted-fixtures.mjs",
+    "fixtures": "bun run fixtures:small && node bench/make-fixtures.mjs medium large",
     "test": "bun run test:rust && bun run test:node && bun run test:browser",
     "test:rust": "cargo test",
     "test:node": "for f in test/node/*.test.mjs; do echo \"\u2500\u2500 $f\"; node \"$f\" || exit 1; done",
     "test:browser": "playwright test",
     "test:worker": "echo 'not implemented \u2014 see test/worker/README.md'",
     "bench": "node bench/bench.mjs",
-    "bench:bun": "bun bench/bench.mjs"
+    "bench:bun": "bun bench/bench.mjs",
+    "fixtures:small": "node bench/make-fixtures.mjs small && node test/support/make-date-fixture.mjs && ./test/support/fetch-fixtures.sh && node test/support/make-crafted-fixtures.mjs",
+    "lint": "cargo fmt --check && cargo clippy --all-targets -- -D warnings"
   },
   "keywords": [
     "xlsx",

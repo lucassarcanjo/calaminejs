@@ -8,11 +8,21 @@ import { benchFixtures as outDir } from "../test/support/paths.mjs";
 
 mkdirSync(outDir, { recursive: true });
 
-const SIZES = [
+const ALL = [
   { name: "small", rows: 500, cols: 10 },
   { name: "medium", rows: 20_000, cols: 20 },
   { name: "large", rows: 150_000, cols: 12 },
 ];
+
+// CI only needs `small` — it runs the correctness suites, not the benchmark,
+// and building the 23 MB fixture there is a minute of nothing useful.
+const wanted = process.argv.slice(2);
+const SIZES = wanted.length ? ALL.filter((s) => wanted.includes(s.name)) : ALL;
+if (wanted.length && SIZES.length !== wanted.length) {
+  const known = ALL.map((s) => s.name).join(", ");
+  console.error(`unknown size in ${JSON.stringify(wanted)}; known sizes: ${known}`);
+  process.exit(1);
+}
 
 function buildRows(rows, cols) {
   const header = Array.from({ length: cols }, (_, c) => `col_${c}`);

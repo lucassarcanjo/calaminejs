@@ -1,0 +1,171 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes the older run irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The wasm is built once and shared. Building it per job would triple the
+  # slowest step for no extra signal, and would let the node and browser suites
+  # test two separately-compiled binaries — precisely the class of difference
+  # this repo keeps finding by accident.
+  build:
+    name: build wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins both the version and the wasm32 target, so
+      # rustup installs the right thing without this workflow restating it.
+      # Installed explicitly rather than trusting rustup to auto-install from
+      # rust-toolchain.toml, which has varied between rustup versions. The
+      # channel, target and components all still come from that file — this
+      # workflow does not restate the version.
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install --profile minimal
+      - run: rustup show
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: build
+
+      - name: Install wasm-pack
+        run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+
+      - name: Install binaryen
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - name: Build dist/
+        run: bun run build
+
+      # The differential suite compares against calamine read natively, so the
+      # node job needs this binary. Building it here keeps Rust out of that job.
+      - name: Build native reference dumper
+        run: cargo build --release --example dump_native
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dump_native
+          path: target/release/examples/dump_native
+          retention-days: 7
+
+  rust:
+    name: rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Installed explicitly rather than trusting rustup to auto-install from
+      # rust-toolchain.toml, which has varied between rustup versions. The
+      # channel, target and components all still come from that file — this
+      # workflow does not restate the version.
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install --profile minimal
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rust
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  node:
+    name: node suites
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dump_native
+          path: target/release/examples/
+      - name: Restore the executable bit
+        # upload-artifact does not preserve file modes.
+        run: chmod +x target/release/examples/dump_native
+
+      # The corpus is pinned to a tag inside the script, so the script's hash is
+      # the cache key: a hit means the same 134 files, and bumping the tag misses
+      # on purpose.
+      - name: Cache calamine corpus
+        uses: actions/cache@v4
+        with:
+          path: test/fixtures/calamine
+          key: calamine-corpus-${{ hashFiles('test/support/fetch-fixtures.sh') }}
+
+      - name: Fixtures
+        run: bun run fixtures:small
+
+      - run: bun run test:node
+
+  browser:
+    name: browser suite
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install Chromium
+        # Re-run even on a cache hit: --with-deps installs system libraries via
+        # apt, which the cached path does not cover.
+        run: bunx playwright install --with-deps chromium
+
+      # This suite serves fixtures over HTTP but runs no differential pass, so
+      # it needs the small fixtures and not the corpus.
+      - name: Fixtures
+        run: |
+          node bench/make-fixtures.mjs small
+          node test/support/make-date-fixture.mjs
+          node test/support/make-crafted-fixtures.mjs
+
+      - run: bun run test:browser
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

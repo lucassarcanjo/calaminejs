@@ -51,7 +51,10 @@ fn main() {
     let mut workbook = match open_workbook_auto_from_rs(Cursor::new(&bytes[..])) {
         Ok(wb) => wb,
         Err(e) => {
-            println!("{}", json!({ "error": format!("could not open workbook: {e}") }));
+            println!(
+                "{}",
+                json!({ "error": format!("could not open workbook: {e}") })
+            );
             return;
         }
     };
