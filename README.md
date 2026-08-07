@@ -1,5 +1,7 @@
 # calaminejs
 
+[![CI](https://github.com/lucassarcanjo/calaminejs/actions/workflows/ci.yml/badge.svg)](https://github.com/lucassarcanjo/calaminejs/actions/workflows/ci.yml)
+
 [calamine](https://github.com/tafia/calamine) — the Rust spreadsheet reader — compiled to
 WebAssembly, so the same artifact reads `.xlsx` / `.xls` / `.xlsb` / `.ods` in Node, Bun, Deno,
 browsers and edge runtimes without a native addon or a per-platform prebuild.
