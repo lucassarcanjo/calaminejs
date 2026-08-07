@@ -45,14 +45,33 @@ jobs:
       - name: Install wasm-pack
         run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
 
+      # Pinned, and deliberately not `apt install binaryen`: Ubuntu noble ships
+      # binaryen 108, from 2022. That wasm-opt mangles the externref table this
+      # wasm-bindgen emits, producing a binary that cannot instantiate at all —
+      # and it does so silently, so the build still reports success.
       - name: Install binaryen
-        run: sudo apt-get update && sudo apt-get install -y binaryen
+        env:
+          BINARYEN_VERSION: version_131
+        run: |
+          curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/${BINARYEN_VERSION}/binaryen-${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            | tar -xz -C /opt
+          echo "/opt/binaryen-${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify wasm-opt
+        run: wasm-opt --version
 
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
       - name: Build dist/
         run: bun run build
+
+      # A build that emits an unusable artifact must fail here, not two jobs
+      # later with an error that points nowhere near the cause.
+      - name: Smoke-check the built package
+        run: |
+          node test/support/make-crafted-fixtures.mjs
+          node scripts/smoke.mjs
 
       # The differential suite compares against calamine read natively, so the
       # node job needs this binary. Building it here keeps Rust out of that job.
