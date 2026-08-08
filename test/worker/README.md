@@ -32,7 +32,7 @@ Then, in this directory:
   posted to it and returning the result as JSON.
 - `wrangler.toml` — `compatibility_date`, and `rules` with
   `type = "CompiledWasm"` for `**/*.wasm` so the import resolves.
-- `workerd.test.mjs` — boots Miniflare, POSTs `test/fixtures/crafted/errors.xlsx`
+- `workerd.test.ts` — boots Miniflare, POSTs `test/fixtures/crafted/errors.xlsx`
   to the worker, asserts the CSV comes back as `#DIV/0!`.
 
 Wire it into `test:worker` in `package.json`, which is currently a stub.
