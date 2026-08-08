@@ -18,3 +18,6 @@ node_modules
 # Playwright
 /test-results
 /playwright-report
+
+# Claude Code worktrees and local state
+/.claude
