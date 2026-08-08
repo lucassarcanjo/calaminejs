@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = join(root, "pkg");
 const dist = join(root, "dist");
+const types = join(root, "types");
 
 const GLUE = "calamine_wasm.js";
 const WASM = "calamine_wasm_bg.wasm";
@@ -28,6 +29,28 @@ const WASM = "calamine_wasm_bg.wasm";
 // readCellsAsValue — those are benchmark instrumentation and the benchmarks
 // import them from the glue directly.
 const API = ["sheetNames", "readCells", "toJson", "toCsv", "toMarkdown"];
+
+// Imported rather than re-exported straight through, because the parsed helpers
+// below need the names in local scope. `export { ... }` on a bare re-export does
+// not bind them.
+const importApi = `import { ${API.join(", ")} } from "./${GLUE}";`;
+const exportApi = `export { ${API.join(", ")} };`;
+
+// The typed way out of `JSON.parse` returning `any`. Kept as thin wrappers in
+// each entry rather than a shared module: dist/ has no internal imports beyond
+// the glue, and one shared file would have to be listed in every entry's
+// sideEffects and exports for no gain over four duplicated lines.
+const PARSED = `
+/** \`readCells\`, parsed. The types follow \`tagged\`; see index.d.ts. */
+export function readCellsParsed(bytes, options) {
+  return JSON.parse(readCells(bytes, options));
+}
+
+/** \`toJson\`, parsed. The types follow \`header\` and \`tagged\`. */
+export function toJsonParsed(bytes, options) {
+  return JSON.parse(toJson(bytes, options));
+}
+`;
 
 if (!process.argv.includes("--no-wasm")) {
   console.log("building wasm...");
@@ -42,7 +65,6 @@ mkdirSync(dist, { recursive: true });
 cpSync(join(pkg, GLUE), join(dist, GLUE));
 cpSync(join(pkg, WASM), join(dist, WASM));
 
-const reexport = `export { ${API.join(", ")} } from "./${GLUE}";`;
 const wasmBytes = readFileSync(join(pkg, WASM));
 
 // ── node / bun / deno ────────────────────────────────────────────────────────
@@ -53,11 +75,12 @@ writeFileSync(
   join(dist, "node.js"),
   `import { readFileSync } from "node:fs";
 import { initSync } from "./${GLUE}";
+${importApi}
 
 initSync({ module: readFileSync(new URL("./${WASM}", import.meta.url)) });
 
-${reexport}
-
+${exportApi}
+${PARSED}
 /** Already initialised on this runtime. Here so the same code runs anywhere. */
 export function ready() {
   return Promise.resolve();
@@ -73,11 +96,12 @@ writeFileSync(
   join(dist, "workerd.js"),
   `import wasmModule from "./${WASM}";
 import { initSync } from "./${GLUE}";
+${importApi}
 
 initSync({ module: wasmModule });
 
-${reexport}
-
+${exportApi}
+${PARSED}
 /** Already initialised on this runtime. Here so the same code runs anywhere. */
 export function ready() {
   return Promise.resolve();
@@ -109,18 +133,29 @@ export function ready() {
   return started;
 }
 
-function guard(name) {
+// The name is passed separately from the function so the message names what the
+// caller actually called: a parsed helper delegates to readCells, and reporting
+// *that* sends people looking for a function they never wrote.
+function guard(name, fn) {
   return (...args) => {
     if (!initialised) {
       throw new Error(
         \`calaminejs: await ready() before calling \${name}() — this environment loads the wasm asynchronously\`,
       );
     }
-    return api[name](...args);
+    return fn(...args);
   };
 }
 
-${API.map((n) => `export const ${n} = guard("${n}");`).join("\n")}
+${API.map((n) => `export const ${n} = guard("${n}", (...args) => api.${n}(...args));`).join("\n")}
+
+/** \`readCells\`, parsed. The types follow \`tagged\`; see index.d.ts. */
+export const readCellsParsed = guard("readCellsParsed", (...args) =>
+  JSON.parse(api.readCells(...args)),
+);
+
+/** \`toJson\`, parsed. The types follow \`header\` and \`tagged\`. */
+export const toJsonParsed = guard("toJsonParsed", (...args) => JSON.parse(api.toJson(...args)));
 `,
 );
 
@@ -136,6 +171,7 @@ writeFileSync(
   join(dist, "inline.js"),
   `import { initSync } from "./${GLUE}";
 import { wasmBase64 } from "./wasm-base64.js";
+${importApi}
 
 // atob rather than Buffer: this entry has to work in a browser too.
 const binary = atob(wasmBase64);
@@ -144,8 +180,8 @@ for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
 initSync({ module: bytes });
 
-${reexport}
-
+${exportApi}
+${PARSED}
 /** Already initialised on this runtime. Here so the same code runs anywhere. */
 export function ready() {
   return Promise.resolve();
@@ -158,86 +194,33 @@ writeFileSync(
   join(dist, "slim.js"),
   `// Bring your own wasm. Pass bytes or a WebAssembly.Module to initSync, or a
 // URL/Response/bytes to init, then use the API as normal.
-export { default as init, initSync } from "./${GLUE}";
+//
+// No ready() here, deliberately: initialisation is the caller's, and it is done
+// when initSync returns or the init promise resolves.
+${importApi}
 
-${reexport}
-`,
+export { default as init, initSync } from "./${GLUE}";
+${exportApi}
+${PARSED}`,
 );
 
 // ── types ────────────────────────────────────────────────────────────────────
-// Hand-written rather than wasm-pack's, which types every options bag as \`any\`.
-writeFileSync(
-  join(dist, "index.d.ts"),
-  `/**
- * How a date or time cell is represented.
- *
- * A spreadsheet date is a civil (wall-clock) value with no timezone, while a JS
- * \`Date\` is an instant — converting one to the other has to invent an offset.
- * This picks who decides.
- */
-export type DatePolicy =
-  /** ISO-8601, no offset: \`2025-10-13T12:59:02.400\`. Also what \`Temporal.PlainDateTime.from()\` accepts. */
-  | "iso"
-  /** The raw Excel serial. */
-  | "serial"
-  /** Milliseconds since the Unix epoch, asserting the civil time is UTC. */
-  | "epoch-millis";
-
-/** A cell's type in the tagged shape. */
-export type CellType = "num" | "str" | "bool" | "date" | "dur" | "err";
-
-/** A cell when \`tagged: true\`. Empty cells are \`null\` rather than tagged. */
-export type TaggedCell = { t: CellType; v: string | number | boolean } | null;
-
-/** A cell when \`tagged\` is off. A date and text that looks like one are identical here. */
-export type Cell = string | number | boolean | null;
-
-export interface ReadOptions {
-  /** Sheet name. Defaults to the first sheet. */
-  sheet?: string;
-  /** @default "iso" */
-  dates?: DatePolicy;
-  /** Wrap each cell as \`{ t, v }\` so its type survives. @default false */
-  tagged?: boolean;
+// Copied from types/, not generated here. They used to be one long template
+// literal in this file, which is how `./slim` ended up declaring a `ready()`
+// that entry does not export and no types at all for the `init`/`initSync` it
+// does. As real files they are checked: `bun run typecheck` reads them through
+// the test suites, so a declaration that does not match the runtime fails here
+// rather than in a user's editor.
+for (const file of ["api.d.ts", "index.d.ts", "slim.d.ts"]) {
+  cpSync(join(types, file), join(dist, file));
 }
 
-export interface JsonOptions extends ReadOptions {
-  /** \`"first-row"\` keys objects by the header row; \`"none"\` returns arrays. @default "first-row" */
-  header?: "first-row" | "none";
-}
-
-export interface CsvOptions extends Omit<ReadOptions, "tagged"> {
-  /** Exactly one character. @default "," */
-  delimiter?: string;
-}
-
-export type MarkdownOptions = Omit<ReadOptions, "tagged">;
-
-/** Sheet names, in workbook order. */
-export function sheetNames(bytes: Uint8Array): string[];
-
-/** Rows of cells, as a JSON string. Parse it with \`JSON.parse\`. */
-export function readCells(bytes: Uint8Array, options?: ReadOptions): string;
-
-/** Rows as objects keyed by the header row, as a JSON string. */
-export function toJson(bytes: Uint8Array, options?: JsonOptions): string;
-
-/** RFC 4180 CSV, built in Rust so only one string crosses the boundary. */
-export function toCsv(bytes: Uint8Array, options?: CsvOptions): string;
-
-/** A GitHub-flavoured Markdown table, first row as the header. */
-export function toMarkdown(bytes: Uint8Array, options?: MarkdownOptions): string;
-
-/**
- * Resolves once the wasm is usable.
- *
- * On Node, Bun, Deno and Cloudflare Workers this is already true on import and
- * the promise is resolved. In a browser or a bundled app the wasm loads
- * asynchronously, so await this first. Awaiting it always is portable.
- */
-export function ready(): Promise<void>;
-`,
-);
+// wasm-pack's own declarations for the glue. Not part of the public API — the
+// exports map points nowhere near them — but dist/calamine_wasm.js does ship,
+// and the adversarial suite and the benchmarks import it directly for the
+// instrumentation entry points and the WebAssembly.Memory. Copying the types
+// they already come with is free and stops those callers falling back to `any`.
+cpSync(join(pkg, "calamine_wasm.d.ts"), join(dist, "calamine_wasm.d.ts"));
 
 const sizes = ["node.js", "workerd.js", "streaming.js", "inline.js", "slim.js", WASM].map((f) => {
   const size = readFileSync(join(dist, f)).length;
