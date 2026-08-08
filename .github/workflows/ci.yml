@@ -26,7 +26,7 @@ jobs:
     name: build wasm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # rust-toolchain.toml pins both the version and the wasm32 target, so
       # rustup installs the right thing without this workflow restating it.
@@ -78,13 +78,13 @@ jobs:
       - name: Build native reference dumper
         run: cargo build --release --example dump_native
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dump_native
           path: target/release/examples/dump_native
@@ -94,7 +94,7 @@ jobs:
     name: rust (fmt, clippy, test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Installed explicitly rather than trusting rustup to auto-install from
       # rust-toolchain.toml, which has varied between rustup versions. The
       # channel, target and components all still come from that file — this
@@ -114,16 +114,16 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dump_native
           path: target/release/examples/
@@ -135,7 +135,7 @@ jobs:
       # the cache key: a hit means the same 134 files, and bumping the tag misses
       # on purpose.
       - name: Cache calamine corpus
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: test/fixtures/calamine
           key: calamine-corpus-${{ hashFiles('test/support/fetch-fixtures.sh') }}
@@ -150,17 +150,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -180,7 +180,7 @@ jobs:
 
       - run: bun run test:browser
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
