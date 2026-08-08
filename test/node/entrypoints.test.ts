@@ -13,18 +13,22 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { crafted, dist, fixtures, root } from "../support/paths.mjs";
+import { crafted, dist, fixtures, root } from "../support/paths.ts";
 
 // Absolute file URLs, not relative specifiers: the probe is written into
 // test/fixtures/, so a relative path would resolve from there rather than from
 // this file — which is exactly the kind of thing this suite exists to catch.
-const entry = (name) => JSON.stringify(pathToFileURL(join(dist, name)).href);
+const entry = (name: string) => JSON.stringify(pathToFileURL(join(dist, name)).href);
 
 const scratch = join(fixtures, "entrypoint-probe.mjs");
+
+/** execFileSync attaches the child's stderr to the thrown error; nothing types that. */
+const stderrOf = (error: unknown) =>
+  String((error as { stderr?: unknown }).stderr ?? error);
 const fixture = join(crafted, "errors.xlsx");
 
 let failures = 0;
-function check(name, ok, detail = "") {
+function check(name: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`${ok ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
@@ -34,8 +38,13 @@ if (!existsSync(fixture)) {
   process.exit(1);
 }
 
+interface ProbeResult {
+  names: string[];
+  firstLine: string;
+}
+
 /** Runs a snippet in a fresh process so no other entry can have initialised the glue. */
-function probe(entryName, { awaitReady }) {
+function probe(entryName: string, { awaitReady }: { awaitReady: boolean }): ProbeResult {
   writeFileSync(
     scratch,
     `import { readFileSync } from "node:fs";
@@ -47,7 +56,7 @@ const csv = toCsv(bytes);
 console.log(JSON.stringify({ names, firstLine: csv.split("\\n")[0] }));
 `,
   );
-  return JSON.parse(execFileSync("node", [scratch], { cwd: root, encoding: "utf8" }));
+  return JSON.parse(execFileSync("node", [scratch], { cwd: root, encoding: "utf8" })) as ProbeResult;
 }
 
 // ── node entry: must be usable the instant it is imported ───────────────────
@@ -56,7 +65,7 @@ try {
   check("node entry works without awaiting anything", out.names[0] === "Sheet1", JSON.stringify(out.names));
   check("node entry reads cells", out.firstLine === "#DIV/0!", out.firstLine);
 } catch (e) {
-  check("node entry works without awaiting anything", false, String(e.stderr ?? e).slice(0, 120));
+  check("node entry works without awaiting anything", false, stderrOf(e).slice(0, 120));
 }
 
 // ── inline entry: same, with the wasm carried as base64 ─────────────────────
@@ -64,7 +73,7 @@ try {
   const out = probe("inline.js", { awaitReady: false });
   check("inline entry works with no companion file", out.firstLine === "#DIV/0!", out.firstLine);
 } catch (e) {
-  check("inline entry works with no companion file", false, String(e.stderr ?? e).slice(0, 120));
+  check("inline entry works with no companion file", false, stderrOf(e).slice(0, 120));
 }
 
 // ── streaming entry: async, and must say so clearly if used too early ───────
@@ -76,7 +85,7 @@ try {
   // here. That it fails on Node is the reason the node condition exists.
   check(
     "streaming entry fails on node as expected (no file:// fetch)",
-    /not implemented|fetch failed|ENOENT/i.test(String(e.stderr ?? e)),
+    /not implemented|fetch failed|ENOENT/i.test(stderrOf(e)),
     "and is why the node condition exists",
   );
 }
@@ -105,8 +114,11 @@ const slim = JSON.parse(execFileSync("node", [scratch], { cwd: root, encoding: "
 check("slim entry accepts caller-supplied wasm", slim[0] === "Sheet1", JSON.stringify(slim));
 
 // ── the exports map must resolve to what we think ───────────────────────────
-const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-const conditions = Object.keys(pkg.exports["."]);
+type ExportTarget = string | Record<string, string>;
+const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+  exports: Record<string, ExportTarget>;
+};
+const conditions = Object.keys(pkg.exports["."] as Record<string, string>);
 check(
   "condition order puts specific runtimes before the fallback",
   conditions.indexOf("workerd") < conditions.indexOf("browser") &&
@@ -116,7 +128,7 @@ check(
 check("raw wasm is exported as a subpath", ".ledger" in pkg.exports === false && "./calamine_wasm_bg.wasm" in pkg.exports);
 
 for (const [subpath, target] of Object.entries(pkg.exports)) {
-  const files = typeof target === "string" ? [target] : Object.values(target);
+  const files: string[] = typeof target === "string" ? [target] : Object.values(target);
   for (const file of files) {
     if (file.startsWith("./dist") && !existsSync(join(root, file))) {
       check(`exports ${subpath} -> ${file} exists`, false);

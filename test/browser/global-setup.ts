@@ -3,10 +3,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { crafted, datesFixture, dist } from "../support/paths.mjs";
+import { crafted, datesFixture, dist } from "../support/paths.ts";
 
 export default function globalSetup() {
-  const required = [
+  const required: Array<[path: string, fix: string]> = [
     [join(dist, "streaming.js"), "bun run build"],
     [join(dist, "calamine_wasm_bg.wasm"), "bun run build"],
     [join(dist, "inline.js"), "bun run build"],

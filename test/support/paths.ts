@@ -14,7 +14,7 @@ export const fixtures = join(root, "test", "fixtures");
 /** calamine's own corpus, fetched by support/fetch-fixtures.sh. */
 export const corpus = join(fixtures, "calamine");
 
-/** Fixtures built by support/make-crafted-fixtures.mjs for branches the corpus misses. */
+/** Fixtures built by support/make-crafted-fixtures.ts for branches the corpus misses. */
 export const crafted = join(fixtures, "crafted");
 
 /** The date fixture, written as raw serials so the bytes on disk are known. */

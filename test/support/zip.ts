@@ -15,16 +15,21 @@ const CRC_TABLE = (() => {
   return t;
 })();
 
-function crc32(buf) {
+function crc32(buf: Buffer): number {
   let c = -1;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]!) & 0xff]! ^ (c >>> 8);
   return (c ^ -1) >>> 0;
 }
 
-/** entries: [{ name, data: string | Buffer }] */
-export function makeZip(entries) {
-  const locals = [];
-  const central = [];
+/** One file inside the archive. `data` is UTF-8 encoded when given as a string. */
+export interface ZipEntry {
+  name: string;
+  data: string | Buffer;
+}
+
+export function makeZip(entries: ZipEntry[]): Buffer {
+  const locals: Buffer[] = [];
+  const central: Buffer[] = [];
   let offset = 0;
 
   for (const { name, data } of entries) {
@@ -96,7 +101,10 @@ const WB_RELS = `<?xml version="1.0" encoding="UTF-8"?>
 </Relationships>`;
 
 /** Build an xlsx around a caller-supplied sheet1.xml body. */
-export function makeXlsx(sheetXml, { sheets = '<sheet name="Sheet1" sheetId="1" r:id="rId1"/>' } = {}) {
+export function makeXlsx(
+  sheetXml: string,
+  { sheets = '<sheet name="Sheet1" sheetId="1" r:id="rId1"/>' }: { sheets?: string } = {},
+): Buffer {
   const workbook = `<?xml version="1.0" encoding="UTF-8"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 <sheets>${sheets}</sheets>
@@ -111,7 +119,7 @@ export function makeXlsx(sheetXml, { sheets = '<sheet name="Sheet1" sheetId="1" 
   ]);
 }
 
-export function sheet(dimensionRef, rowsXml) {
+export function sheet(dimensionRef: string, rowsXml: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <dimension ref="${dimensionRef}"/>

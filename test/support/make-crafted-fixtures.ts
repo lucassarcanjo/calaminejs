@@ -8,8 +8,8 @@
 // against an expectation recomputed in JS.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeXlsx, makeZip, sheet } from "./zip.mjs";
-import { crafted as outDir } from "./paths.mjs";
+import { makeXlsx, makeZip, sheet } from "./zip.ts";
+import { crafted as outDir } from "./paths.ts";
 
 mkdirSync(outDir, { recursive: true });
 
@@ -21,7 +21,7 @@ const MANIFEST = `<?xml version="1.0" encoding="UTF-8"?>
 <manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>
 </manifest:manifest>`;
 
-function ods(rows) {
+function ods(rows: string[]): Buffer {
   const content = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" office:version="1.2">
 <office:body><office:spreadsheet><table:table table:name="Sheet1">
@@ -34,9 +34,9 @@ ${rows.map((r) => `<table:table-row>${r}</table:table-row>`).join("\n")}
   ]);
 }
 
-const dateCell = (v) =>
+const dateCell = (v: string) =>
   `<table:table-cell office:value-type="date" office:date-value="${v}"><text:p>d</text:p></table:table-cell>`;
-const timeCell = (v) =>
+const timeCell = (v: string) =>
   `<table:table-cell office:value-type="time" office:time-value="${v}"><text:p>t</text:p></table:table-cell>`;
 
 // Understood — these must convert and follow the `dates` policy.

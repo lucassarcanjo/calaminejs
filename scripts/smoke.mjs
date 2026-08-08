@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { crafted } from "../test/support/paths.mjs";
+import { crafted } from "../test/support/paths.ts";
 
 const bytes = readFileSync(join(crafted, "errors.xlsx"));
 const checks = [];

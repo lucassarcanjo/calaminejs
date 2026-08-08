@@ -10,16 +10,27 @@
 // are singletons, so two entries in one page would let the first initialise the
 // second and hide a broken loader.
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import type { ReadOptions, TaggedCell } from "calaminejs";
 
 const HARNESS = "/test/browser/harness.html";
 const ERRORS_XLSX = "/test/fixtures/crafted/errors.xlsx";
 const DATES_XLSX = "/test/fixtures/dates.xlsx";
 
 /** Records every URL the page requests, so we can prove *how* the wasm arrived. */
-function trackRequests(page) {
-  const urls = [];
+function trackRequests(page: Page): string[] {
+  const urls: string[] = [];
   page.on("request", (request) => urls.push(request.url()));
   return urls;
+}
+
+/** What test/browser/worker.js posts back. */
+interface WorkerResult {
+  ok: boolean;
+  error?: string;
+  names?: string[];
+  firstCsvLine?: string;
+  firstCell?: TaggedCell;
 }
 
 test.describe("streaming entry (browsers and bundlers)", () => {
@@ -64,7 +75,7 @@ test.describe("streaming entry (browsers and bundlers)", () => {
         window.calamine.sheetNames(new Uint8Array());
         return "NO ERROR";
       } catch (error) {
-        return error.message;
+        return (error as Error).message;
       }
     });
 
@@ -94,10 +105,10 @@ test.describe("streaming entry (browsers and bundlers)", () => {
       await window.calamine.ready();
       const bytes = await window.fetchFixture(fixture);
       try {
-        window.calamine.readCells(bytes, { sheets: "Sheet1" });
+        window.calamine.readCells(bytes, { sheets: "Sheet1" } as ReadOptions);
         return "NO ERROR";
       } catch (error) {
-        return error.message;
+        return (error as Error).message;
       }
     }, ERRORS_XLSX);
 
@@ -133,8 +144,8 @@ test.describe("web worker", () => {
     const result = await page.evaluate(async (fixture) => {
       const bytes = await window.fetchFixture(fixture);
       const worker = new Worker("/test/browser/worker.js", { type: "module" });
-      return await new Promise((resolve, reject) => {
-        worker.onmessage = ({ data }) => resolve(data);
+      return await new Promise<WorkerResult>((resolve, reject) => {
+        worker.onmessage = ({ data }: MessageEvent<WorkerResult>) => resolve(data);
         worker.onerror = (event) => reject(new Error(event.message));
         worker.postMessage(bytes);
       });

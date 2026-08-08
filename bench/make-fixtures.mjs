@@ -4,7 +4,7 @@
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as XLSX from "xlsx";
-import { benchFixtures as outDir } from "../test/support/paths.mjs";
+import { benchFixtures as outDir } from "../test/support/paths.ts";
 
 mkdirSync(outDir, { recursive: true });
 

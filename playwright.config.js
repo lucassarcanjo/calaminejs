@@ -8,7 +8,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? "line" : "list",
-  globalSetup: "./test/browser/global-setup.mjs",
+  globalSetup: "./test/browser/global-setup.ts",
 
   use: {
     baseURL: `http://localhost:${PORT}`,
@@ -18,7 +18,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    command: `node test/browser/server.mjs`,
+    command: `node test/browser/server.ts`,
     url: `http://localhost:${PORT}/test/browser/harness.html`,
     reuseExistingServer: !process.env.CI,
     env: { PORT: String(PORT) },

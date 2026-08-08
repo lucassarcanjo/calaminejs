@@ -7,13 +7,24 @@
 // directly, bypassing any Date conversion, so the bytes on disk are known.
 import { mkdirSync, writeFileSync } from "node:fs";
 import * as XLSX from "xlsx";
-import { datesFixture, fixtures } from "./paths.mjs";
+import { datesFixture, fixtures } from "./paths.ts";
 
 mkdirSync(fixtures, { recursive: true });
 
 // `kind` is what the cell *is*, which decides how to read the output:
 // a duration is a length of time, not a point on a calendar.
-export const CASES = [
+export interface DateCase {
+  label: string;
+  /** The raw Excel serial written to the file, bypassing any Date conversion. */
+  serial: number;
+  /** The number format, which is the only thing that makes a serial a date. */
+  fmt: string;
+  kind: "datetime" | "duration" | "number";
+  /** Expected output under the default `iso` policy. A number when kind is "number". */
+  iso: string | number;
+}
+
+export const CASES: DateCase[] = [
   { label: "date only", serial: 43831, fmt: "yyyy-mm-dd", kind: "datetime", iso: "2020-01-01T00:00:00.000" },
   { label: "datetime + millis", serial: 45943.541, fmt: "yyyy-mm-dd hh:mm:ss", kind: "datetime", iso: "2025-10-13T12:59:02.400" },
   { label: "the tz-mangled one", serial: 43830.87467592592, fmt: "yyyy-mm-dd hh:mm:ss", kind: "datetime", iso: "2019-12-31T20:59:32.000" },
@@ -36,11 +47,14 @@ export const CASES = [
 ];
 
 const ws = XLSX.utils.aoa_to_sheet(CASES.map((c) => [c.label, c.serial]));
-for (let i = 0; i < CASES.length; i++) {
+for (const [i, testCase] of CASES.entries()) {
+  // Written cell-by-cell rather than through aoa_to_sheet's inference, which is
+  // what applies a timezone offset and makes the file mean something other than
+  // what it says.
   const cell = ws[`B${i + 1}`];
   cell.t = "n";
-  cell.v = CASES[i].serial;
-  cell.z = CASES[i].fmt;
+  cell.v = testCase.serial;
+  cell.z = testCase.fmt;
 }
 
 const wb = XLSX.utils.book_new();

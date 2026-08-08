@@ -9,27 +9,47 @@
 import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import { join } from "node:path";
-import init, { sheetNames, readCells, parseOnly } from "../../dist/calamine_wasm.js";
-import { makeXlsx, makeZip, sheet } from "../support/zip.mjs";
-import { benchFixtures, datesFixture, dist } from "../support/paths.mjs";
+// The raw glue, not the package entry: this suite needs `parseOnly` and the
+// WebAssembly.Memory behind the instance, neither of which is public API.
+import init, {
+  sheetNames,
+  readCells as readCellsRaw,
+  parseOnly as parseOnlyRaw,
+} from "../../dist/calamine_wasm.js";
+import { makeXlsx, makeZip, sheet } from "../support/zip.ts";
+import { benchFixtures, datesFixture, dist } from "../support/paths.ts";
 
 const wasm = await init({ module_or_path: readFileSync(join(dist, "calamine_wasm_bg.wasm")) });
 
 const good = readFileSync(datesFixture);
-const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
+const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`;
+
+// wasm-bindgen types the options bag as a required JsValue because that is what
+// the ABI takes. At runtime it is genuinely optional — undefined selects every
+// default. Narrowed once here rather than passing `undefined` at ten call sites.
+const readCells = (bytes: Uint8Array, options?: unknown) => readCellsRaw(bytes, options);
+const parseOnly = (bytes: Uint8Array, options?: unknown) => parseOnlyRaw(bytes, options);
+
+interface Outcome {
+  name: string;
+  kind: "returned" | "threw";
+  detail: string;
+  alive: boolean;
+}
 
 let failures = 0;
-const results = [];
+const results: Outcome[] = [];
 
 // Each case returns a description of what happened. A thrown JS Error is a
 // *pass* — that is the binding rejecting input cleanly.
-function attack(name, fn) {
-  let outcome;
+function attack(name: string, fn: () => unknown) {
+  let outcome: Pick<Outcome, "kind" | "detail">;
   try {
     const value = fn();
     outcome = { kind: "returned", detail: String(value).slice(0, 60) };
-  } catch (e) {
-    outcome = { kind: "threw", detail: (e.message ?? String(e)).split("\n")[0].slice(0, 60) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    outcome = { kind: "threw", detail: message.split("\n")[0]!.slice(0, 60) };
   }
 
   // The real assertion: is the instance still alive?
@@ -75,20 +95,20 @@ for (const r of results) {
 // Memory does not shrink in wasm. Repeated large reads should plateau, not climb.
 console.log("\nmemory growth across repeated reads of the 23 MB fixture");
 const largePath = join(benchFixtures, "large.xlsx");
-let large;
+let large: Buffer | undefined;
 try {
   large = readFileSync(largePath);
 } catch {
   console.log("  (large.xlsx missing — run `node bench/make-fixtures.mjs`)");
 }
 if (large) {
-  const readings = [];
+  const readings: number[] = [];
   for (let i = 0; i < 5; i++) {
     parseOnly(large);
     readings.push(wasm.memory.buffer.byteLength);
   }
   console.log(`  after each of 5 reads: ${readings.map(mb).join(", ")}`);
-  const grew = readings.at(-1) > readings[0];
+  const grew = (readings.at(-1) ?? 0) > (readings[0] ?? 0);
   console.log(`  ${grew ? "climbing — memory is not being reused" : "plateaued after the first read"}`);
 }
 

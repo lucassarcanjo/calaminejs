@@ -2,13 +2,15 @@
 // to break a naive implementation: a comma, a quote, a pipe, an embedded
 // newline, a duplicate header, a blank header, an error cell, a real date and
 // text that looks exactly like one.
-import { readCells, toCsv, toJson, toMarkdown } from "../../dist/node.js";
-import { makeXlsx, sheet } from "../support/zip.mjs";
+import { readCellsParsed, toCsv, toJsonParsed, toMarkdown } from "calaminejs";
+import type { CsvOptions, JsonOptions, ReadOptions } from "calaminejs";
+import { makeXlsx, sheet } from "../support/zip.ts";
 
-const str = (r, c, v) => `<c r="${c}${r}" t="inlineStr"><is><t>${v}</t></is></c>`;
-const num = (r, c, v) => `<c r="${c}${r}"><v>${v}</v></c>`;
-const err = (r, c, v) => `<c r="${c}${r}" t="e"><v>${v}</v></c>`;
-const date = (r, c, v) => `<c r="${c}${r}" t="d"><v>${v}</v></c>`;
+const str = (r: number, c: string, v: string) =>
+  `<c r="${c}${r}" t="inlineStr"><is><t>${v}</t></is></c>`;
+const num = (r: number, c: string, v: number) => `<c r="${c}${r}"><v>${v}</v></c>`;
+const err = (r: number, c: string, v: string) => `<c r="${c}${r}" t="e"><v>${v}</v></c>`;
+const date = (r: number, c: string, v: string) => `<c r="${c}${r}" t="d"><v>${v}</v></c>`;
 
 // A | B | C(blank hdr) | D(dup of A)
 const book = makeXlsx(
@@ -23,7 +25,7 @@ const book = makeXlsx(
 );
 
 let failures = 0;
-function check(name, got, want) {
+function check(name: string, got: unknown, want: unknown) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
   if (!ok) {
     failures++;
@@ -34,31 +36,36 @@ function check(name, got, want) {
 }
 
 // ── tagged cells: the point of the whole exercise ────────────────────────────
-const tagged = JSON.parse(readCells(book, { tagged: true }));
-check("real date is tagged as a date", tagged[1][1], {
+// Typed TaggedCell[][] with no cast — the overload picks it from `tagged: true`.
+const tagged = readCellsParsed(book, { tagged: true });
+check("real date is tagged as a date", tagged[1]?.[1], {
   t: "date",
   v: "2020-01-01T12:00:00.000",
 });
-check("identical-looking text stays text", tagged[2][1], {
+check("identical-looking text stays text", tagged[2]?.[1], {
   t: "str",
   v: "2020-01-01T12:00:00.000",
 });
-check("error keeps its Excel spelling", tagged[2][2], { t: "err", v: "#DIV/0!" });
-check("empty cell is null, not a tag", tagged[2][3], null);
+check("error keeps its Excel spelling", tagged[2]?.[2], { t: "err", v: "#DIV/0!" });
+check("empty cell is null, not a tag", tagged[2]?.[3], null);
 
 // Untagged, the first two are genuinely indistinguishable — documented, not a bug.
-const plain = JSON.parse(readCells(book));
-check("untagged loses the distinction", plain[1][1] === plain[2][1], true);
+const plain = readCellsParsed(book);
+check("untagged loses the distinction", plain[1]?.[1] === plain[2]?.[1], true);
 
 // ── objects ─────────────────────────────────────────────────────────────────
-const objects = JSON.parse(toJson(book));
-check("blank header becomes its column label, duplicate gets a suffix", Object.keys(objects[0]), [
+const objects = toJsonParsed(book);
+check("blank header becomes its column label, duplicate gets a suffix", Object.keys(objects[0] ?? {}), [
   "name",
   "when",
   "C",
   "name_2",
 ]);
-check("header:none returns arrays including the header row", JSON.parse(toJson(book, { header: "none" })).length, 3);
+check(
+  "header:none returns arrays including the header row",
+  toJsonParsed(book, { header: "none" }).length,
+  3,
+);
 
 // ── csv ─────────────────────────────────────────────────────────────────────
 check(
@@ -87,17 +94,22 @@ check("markdown alignment row", md[1], "| --- | --- | --- | --- |");
 check("markdown escapes a pipe", md[3], "| pipe\\|here | 2020-01-01T12:00:00.000 | #DIV/0! |  |");
 
 // ── option validation ───────────────────────────────────────────────────────
-for (const [name, fn] of [
-  ["a typo in an option name is rejected", () => readCells(book, { sheets: "Sheet1" })],
-  ["a multi-character delimiter is rejected", () => toCsv(book, { delimiter: "||" })],
-  ["an unknown header mode is rejected", () => toJson(book, { header: "second-row" })],
-]) {
+// Each of these is rejected at compile time too, which is the point of the
+// casts: the runtime check exists for callers not using TypeScript, and it is
+// that runtime behaviour being asserted here.
+const invalid: Array<[string, () => unknown]> = [
+  ["a typo in an option name is rejected", () => readCellsParsed(book, { sheets: "Sheet1" } as ReadOptions)],
+  ["a multi-character delimiter is rejected", () => toCsv(book, { delimiter: "||" } as CsvOptions)],
+  ["an unknown header mode is rejected", () => toJsonParsed(book, { header: "second-row" } as unknown as JsonOptions)],
+];
+
+for (const [name, fn] of invalid) {
   try {
     fn();
     failures++;
     console.log(`✗ ${name} — it was accepted`);
-  } catch (e) {
-    console.log(`✓ ${name}: ${e.message.slice(0, 68)}`);
+  } catch (error) {
+    console.log(`✓ ${name}: ${(error as Error).message.slice(0, 68)}`);
   }
 }
 

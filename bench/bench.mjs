@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as XLSX from "xlsx";
 import init, { parseOnly, readCells, readCellsAsValue, toCsv, toMarkdown } from "../dist/calamine_wasm.js";
-import { benchFixtures, dist } from "../test/support/paths.mjs";
+import { benchFixtures, dist } from "../test/support/paths.ts";
 
 const runtime = typeof Bun !== "undefined" ? `bun ${Bun.version}` : `node ${process.version}`;
 

@@ -9,9 +9,9 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 
-import { root } from "../support/paths.mjs";
+import { root } from "../support/paths.ts";
 
-const TYPES = {
+const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8",
@@ -25,7 +25,9 @@ export function createStaticServer() {
   return createServer((req, res) => {
     // Strip the query string, then normalise — a request for /../../etc must
     // not escape the repo even in a test server.
-    const path = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+    // req.url is optional on IncomingMessage, but never absent for a server
+    // request that reached a handler.
+    const path = decodeURIComponent(new URL(req.url ?? "/", "http://localhost").pathname);
     const file = join(root, normalize(path).replace(/^(\.\.[/\\])+/, ""));
 
     if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
