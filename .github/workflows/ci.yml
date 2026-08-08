@@ -70,7 +70,7 @@ jobs:
       # later with an error that points nowhere near the cause.
       - name: Smoke-check the built package
         run: |
-          node test/support/make-crafted-fixtures.mjs
+          node test/support/make-crafted-fixtures.ts
           node scripts/smoke.mjs
 
       # The differential suite compares against calamine read natively, so the
@@ -109,6 +109,31 @@ jobs:
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
 
+  # The .wasm statically links ~50 crates, and MIT and Apache-2.0 both require
+  # their notices to ship with a binary containing the code. That makes
+  # THIRD-PARTY-LICENSES.md a licence obligation rather than a generated
+  # convenience, so it has to be checked like one: a dependency bump that adds a
+  # crate, or one that changes licence, fails here rather than shipping
+  # unattributed. `accepted` in about.toml also rejects anything copyleft.
+  licenses:
+    name: licence attribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: licenses
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+      - uses: oven-sh/setup-bun@v2
+
+      # Regenerates in place and fails if the committed file moved. The failure
+      # is readable as a diff, and the fix is to run `bun run licenses` locally.
+      - run: bun run licenses:check
+
   node:
     name: node suites
     needs: build
@@ -143,7 +168,18 @@ jobs:
       - name: Fixtures
         run: bun run fixtures:small
 
+      # Runs before the suites and against the built dist/, because that is the
+      # point: dist/*.d.ts is hand-written against a wasm binary, and the suites
+      # importing the package as TypeScript are the only thing that checks those
+      # declarations are true. A type error here is a wrong declaration shipping
+      # to users, not a test problem.
+      - run: bun run typecheck
+
       - run: bun run test:node
+
+      # The README's opening snippet, run for real. A quickstart that no longer
+      # works is worse than none, and it is the first thing anyone tries.
+      - run: node examples/js/quickstart.ts
 
   browser:
     name: browser suite
@@ -175,8 +211,8 @@ jobs:
       - name: Fixtures
         run: |
           node bench/make-fixtures.mjs small
-          node test/support/make-date-fixture.mjs
-          node test/support/make-crafted-fixtures.mjs
+          node test/support/make-date-fixture.ts
+          node test/support/make-crafted-fixtures.ts
 
       - run: bun run test:browser
 
