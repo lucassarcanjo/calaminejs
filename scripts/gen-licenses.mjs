@@ -27,8 +27,27 @@ try {
   throw error;
 }
 
+// Three normalisations, each fixing a way the same input produces different
+// bytes on different machines. The file is committed and diffed in CI, so any
+// of them turns the gate into noise — and a gate that cries wolf gets bypassed,
+// which for a licence obligation is the expensive failure.
+//
+//   CRLF          a few upstream licence files use it and are copied verbatim,
+//                 so git's normalisation and the generator disagree forever.
+//   trailing ws   varies between the same file's copies.
+//   blank runs    cargo-about merges the copyright statements of crates that
+//                 share a licence text, and the merge follows filesystem
+//                 iteration order — which differs between macOS and Linux, and
+//                 showed up as miniz_oxide gaining one blank line in CI.
+//
+// All three are whitespace. None can change which licence applies to which
+// crate, or drop a copyright line — the parts that carry legal weight survive
+// untouched, which is what makes this safe to do to an attribution file.
 const generated = readFileSync(out, "utf8");
-const normalised = generated.replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "");
+const normalised = generated
+  .replace(/\r\n/g, "\n")
+  .replace(/[ \t]+$/gm, "")
+  .replace(/\n{3,}/g, "\n\n");
 if (normalised !== generated) writeFileSync(out, normalised);
 
 const crates = new Set(normalised.match(/^### .+$/gm)?.flatMap((h) => h.split("—")[1].split(",")));
