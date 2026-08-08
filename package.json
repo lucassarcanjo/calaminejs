@@ -1,15 +1,35 @@
 {
   "name": "calaminejs",
   "version": "0.1.0",
-  "description": "Fast xlsx/xls/xlsb/ods reader \u2014 calamine compiled to WebAssembly. One artifact for Node, Bun, Deno, browsers and edge workers.",
+  "description": "Fast xlsx/xls/xlsb/ods reader — calamine compiled to WebAssembly. One artifact for Node, Bun, Deno, browsers and edge workers.",
   "license": "MIT",
-  "private": true,
+  "author": "Lucas Arcanjo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucassarcanjo/calaminejs.git"
+  },
+  "homepage": "https://github.com/lucassarcanjo/calaminejs#readme",
+  "bugs": "https://github.com/lucassarcanjo/calaminejs/issues",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": [
     "./dist/node.js",
     "./dist/workerd.js",
     "./dist/inline.js"
   ],
+  "//types": "For TypeScript on the legacy `moduleResolution: node`, which cannot read an exports map at all and would otherwise see this package as untyped. Deliberately no `main` alongside it: a bundler too old to understand exports would then resolve the Node entry into a browser build, and failing loudly beats shipping node:fs to the browser.",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "slim": ["./dist/slim.d.ts"],
+      "inline": ["./dist/index.d.ts"]
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,7 +39,7 @@
       "import": "./dist/streaming.js"
     },
     "./slim": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/slim.d.ts",
       "import": "./dist/slim.js"
     },
     "./inline": {
@@ -32,21 +52,26 @@
   "files": [
     "dist",
     "LICENSE",
+    "THIRD-PARTY-LICENSES.md",
     "README.md"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:fast": "node scripts/build.mjs --no-wasm",
     "smoke": "node scripts/smoke.mjs",
+    "prepack": "node scripts/build.mjs && node scripts/smoke.mjs && node scripts/check-publish.mjs",
     "fixtures": "bun run fixtures:small && node bench/make-fixtures.mjs medium large",
     "test": "bun run test:rust && bun run test:node && bun run test:browser",
     "test:rust": "cargo test",
-    "test:node": "for f in test/node/*.test.mjs; do echo \"\u2500\u2500 $f\"; node \"$f\" || exit 1; done",
+    "test:node": "for f in test/node/*.test.ts; do echo \"── $f\"; node \"$f\" || exit 1; done",
     "test:browser": "playwright test",
-    "test:worker": "echo 'not implemented \u2014 see test/worker/README.md'",
+    "test:worker": "echo 'not implemented — see test/worker/README.md'",
     "bench": "node bench/bench.mjs",
     "bench:bun": "bun bench/bench.mjs",
-    "fixtures:small": "node bench/make-fixtures.mjs small && node test/support/make-date-fixture.mjs && ./test/support/fetch-fixtures.sh && node test/support/make-crafted-fixtures.mjs",
+    "licenses": "node scripts/gen-licenses.mjs",
+    "licenses:check": "bun run licenses && git diff --exit-code -- THIRD-PARTY-LICENSES.md",
+    "fixtures:small": "node bench/make-fixtures.mjs small && node test/support/make-date-fixture.ts && ./test/support/fetch-fixtures.sh && node test/support/make-crafted-fixtures.ts",
+    "typecheck": "tsc --noEmit",
     "lint": "cargo fmt --check && cargo clippy --all-targets -- -D warnings"
   },
   "keywords": [
@@ -61,6 +86,8 @@
   ],
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2",
     "xlsx": "^0.18.5"
   }
 }
