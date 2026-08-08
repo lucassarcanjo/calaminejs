@@ -1,0 +1,38 @@
+# Third-party licences
+
+`dist/calamine_wasm_bg.wasm` is a statically linked binary. The Rust crates below
+are compiled into it and are redistributed as part of every published tarball,
+so their licences and copyright notices ship with it.
+
+This file is generated — run `bun run licenses` after any change to `Cargo.lock`.
+CI regenerates it and fails if the result differs from what is committed.
+
+Scope: the `wasm32-unknown-unknown` target only, so crates pulled in by `cfg`
+branches that wasm never takes are excluded.
+
+The list errs towards over-inclusion. Proc-macro crates such as `syn` and
+`proc-macro2` appear even though only their *output* is linked, because Cargo
+models them as ordinary dependencies and no filter separates them reliably.
+Listing a crate that turned out not to ship costs a paragraph; omitting one that
+did is a licence breach.
+
+MIT appears many times below rather than once. That is deliberate: the licence
+text is per-copyright-holder, and it is the copyright line that has to be
+reproduced, so each distinct notice gets its own entry.
+
+## Summary
+
+{{#each overview}}
+- **{{{name}}}** — {{count}} crate{{#if (gt count 1)}}s{{/if}}
+{{/each}}
+
+## Licences
+
+{{#each licenses}}
+### {{{name}}} — {{#each used_by}}{{#unless @first}}, {{/unless}}{{crate.name}} {{crate.version}}{{/each}}
+
+```
+{{{text}}}
+```
+
+{{/each}}

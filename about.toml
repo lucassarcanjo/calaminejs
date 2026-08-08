@@ -1,0 +1,50 @@
+# Attribution for everything statically linked into dist/calamine_wasm_bg.wasm.
+#
+# This is a licence condition, not bookkeeping. calamine and its tree are almost
+# entirely MIT and Apache-2.0, and both require the licence text and copyright
+# notice to travel with a binary that contains the code. The published npm
+# tarball ships one .wasm with ~50 crates compiled into it, so the notices have
+# to ship with it.
+
+# Scoped to the target actually built and published. Without this, cargo-about
+# walks every platform's dependency tree and attributes crates that are not in
+# the binary — mostly Windows and Unix syscall shims pulled in by cfg branches
+# that wasm never takes.
+targets = ["wasm32-unknown-unknown"]
+
+# Neither ships in the artifact: build dependencies run on the host, and dev
+# dependencies never enter a release build.
+#
+# This does not catch proc-macro crates. Cargo models `syn`, `quote` and
+# `proc-macro2` as ordinary dependencies of wasm-bindgen and serde rather than
+# build-dependencies, so they survive this filter and end up attributed even
+# though no generated code of theirs is linked in. Left that way on purpose —
+# over-attributing costs a few paragraphs, under-attributing is a licence
+# breach, and the two are not symmetric.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+
+# The allowlist. A crate whose licence is not on this list fails the run rather
+# than being silently attributed, so a dependency bump that drags in something
+# copyleft is a build failure and not a discovery made after publishing.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "BSL-1.0",
+    "CC0-1.0",
+]
+
+# Tables last: every key above this line is top-level, and TOML would otherwise
+# read them as belonging to this table.
+
+# Skip this crate itself. It is `publish = false`, and attributing our own MIT
+# licence back to us under "third-party" is just confusing — the root LICENSE
+# already covers it.
+[private]
+ignore = true
