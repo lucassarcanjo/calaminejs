@@ -68,6 +68,7 @@
     "test:worker": "echo 'not implemented — see test/worker/README.md'",
     "bench": "node bench/bench.mjs",
     "bench:bun": "bun bench/bench.mjs",
+    "compare": "node --expose-gc bench/compare/run.mjs",
     "licenses": "node scripts/gen-licenses.mjs",
     "licenses:check": "bun run licenses && git diff --exit-code -- THIRD-PARTY-LICENSES.md",
     "fixtures:small": "node bench/make-fixtures.mjs small && node test/support/make-date-fixture.ts && ./test/support/fetch-fixtures.sh && node test/support/make-crafted-fixtures.ts",

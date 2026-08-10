@@ -92,6 +92,10 @@ SheetJS is the incumbent and it is slow on anything large. Reading a 23 MB / 1.8
 Node 22.18, macOS arm64, median of N runs. Bun 1.3.5 runs the identical artifact and pulls
 further ahead, because SheetJS degrades harder there. Run them yourself with `bun run bench`.
 
+Speed is the least interesting difference, though. **[docs/comparison.md](docs/comparison.md)**
+puts the readers side by side on correctness — dates, cell types, error values — and is honest
+about where this library loses.
+
 The full parse costs 634 ms of that large-file number, so the JS/wasm boundary is 35-55% on
 top — which was the surprise. The boundary is not the bottleneck, so the API does not need to
 be contorted into a columnar or batched-iterator shape to be fast.
@@ -121,6 +125,7 @@ the two places the conversion is genuinely lossy.
 | **[docs/dates.md](docs/dates.md)** | the date policies, the sharp edges, and why SheetJS disagrees |
 | **[docs/packaging.md](docs/packaging.md)** | five entry points, the `exports` conditions, and what each runtime needs |
 | **[docs/testing.md](docs/testing.md)** | the differential method, the corpus, adversarial inputs, CI |
+| **[docs/comparison.md](docs/comparison.md)** | measured against SheetJS, ExcelJS and others — including where we lose |
 | **[docs/roadmap.md](docs/roadmap.md)** | what is not done yet |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | building it, and the rules for changing cell behaviour |
 
