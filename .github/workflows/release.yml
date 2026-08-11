@@ -126,8 +126,26 @@ jobs:
         if: github.event_name == 'release'
         run: npm publish
 
+      # Between releases, package.json holds a version that is already on the
+      # registry, so a dry run always ends at "cannot publish over". That one
+      # error means everything before the registry write succeeded — toolchain,
+      # build, smoke, exports check, tarball — which is the whole of what a dry
+      # run can prove when no version is pending. It is tolerated by exact
+      # message and nothing else: an auth failure, a broken exports map or a
+      # prepack that dies still fails this job.
       - name: Dry run
         if: github.event_name == 'workflow_dispatch'
         run: |
-          npm publish --dry-run
+          set +e
+          out="$(npm publish --dry-run 2>&1)"
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -ne 0 ]; then
+            if echo "$out" | grep -qF "cannot publish over the previously published versions"; then
+              echo "::notice::$(node -p 'require("./package.json").version') is already published. Build and every gate passed; only the registry write was refused, which is expected between releases."
+            else
+              exit "$code"
+            fi
+          fi
           echo "dry run only — nothing was published"
