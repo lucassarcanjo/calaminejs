@@ -3,11 +3,11 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "calaminejs-spike",
+      "name": "calamine",
       "devDependencies": {
         "@playwright/test": "^1.62.1",
         "@types/node": "^26.2.0",
-        "typescript": "7",
+        "typescript": "^7.0.2",
         "xlsx": "^0.18.5",
       },
     },

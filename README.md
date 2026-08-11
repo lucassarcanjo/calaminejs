@@ -1,22 +1,26 @@
-# calaminejs
+# calamine
 
 [![CI](https://github.com/lucassarcanjo/calaminejs/actions/workflows/ci.yml/badge.svg)](https://github.com/lucassarcanjo/calaminejs/actions/workflows/ci.yml)
 
-[calamine](https://github.com/tafia/calamine) — the Rust spreadsheet reader — compiled to
+The Rust spreadsheet reader [calamine](https://github.com/tafia/calamine), compiled to
 WebAssembly, so the same artifact reads `.xlsx` / `.xls` / `.xlsb` / `.ods` in Node, Bun, Deno,
 browsers and edge runtimes without a native addon or a per-platform prebuild.
 
-**Status: built and tested, not yet published.** `npm pack` produces a working tarball; the
-version has not been pushed to npm.
-
 ```sh
-npm install calaminejs
+npm install calamine
 ```
+
+This is an **unofficial** binding. calamine is [tafia's](https://github.com/tafia/calamine)
+and does the actual parsing; this repo only decides what the parsed values look like in
+JavaScript and how one wasm binary reaches five runtimes. The npm package is named for what it
+wraps, but it is maintained here, so please report problems here first — the
+[CONTRIBUTING](CONTRIBUTING.md) guide explains how to tell a binding bug from an upstream one
+before you file either.
 
 ## Using it
 
 ```ts
-import { sheetNames, toCsv, readCellsParsed, ready } from "calaminejs";
+import { sheetNames, toCsv, readCellsParsed, ready } from "calamine";
 
 const bytes = new Uint8Array(await file.arrayBuffer());
 
@@ -139,10 +143,10 @@ the bytes reach the glue, which is the one thing every runtime does differently.
 | `dist/node.js` | `node` | `node:fs` + `initSync` — synchronous |
 | `dist/workerd.js` | `workerd` | `import wasm from "./…wasm"` — Workers want a Module |
 | `dist/streaming.js` | `browser`, `import` | `fetch` + `instantiateStreaming` |
-| `calaminejs/inline` | — | base64 in the JS, for builds with no companion asset |
-| `calaminejs/slim` | — | you supply the bytes or Module |
+| `calamine/inline` | — | base64 in the JS, for builds with no companion asset |
+| `calamine/slim` | — | you supply the bytes or Module |
 
-Most callers import `calaminejs` and never think about it. See
+Most callers import `calamine` and never think about it. See
 **[docs/packaging.md](docs/packaging.md)** for the two that are opt-in and why.
 
 ## Layout

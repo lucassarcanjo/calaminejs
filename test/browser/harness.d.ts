@@ -12,7 +12,7 @@
  * default entry's surface exactly. Loading `slim.js` here would need a wider
  * type — it has no `ready`.
  */
-type CalamineEntry = typeof import("calaminejs");
+type CalamineEntry = typeof import("calamine");
 
 declare global {
   interface Window {

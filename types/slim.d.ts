@@ -1,4 +1,4 @@
-// `calaminejs/slim` — bring your own wasm.
+// `calamine/slim` — bring your own wasm.
 //
 // This entry deliberately has no `ready()`. There is nothing for it to wait on:
 // initialisation is the caller's, and it finishes when `initSync` returns or

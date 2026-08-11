@@ -3,8 +3,8 @@
 // does — the `node` condition, and the declarations that condition advertises.
 // A relative import would skip both and test something nobody ships.
 import { readFileSync } from "node:fs";
-import { readCellsParsed } from "calaminejs";
-import type { Cell, DatePolicy } from "calaminejs";
+import { readCellsParsed } from "calamine";
+import type { Cell, DatePolicy } from "calamine";
 import { CASES } from "../support/make-date-fixture.ts";
 import { datesFixture } from "../support/paths.ts";
 

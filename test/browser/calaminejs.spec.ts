@@ -11,7 +11,7 @@
 // second and hide a broken loader.
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import type { ReadOptions, TaggedCell } from "calaminejs";
+import type { ReadOptions, TaggedCell } from "calamine";
 
 const HARNESS = "/test/browser/harness.html";
 const ERRORS_XLSX = "/test/fixtures/crafted/errors.xlsx";
@@ -80,7 +80,7 @@ test.describe("streaming entry (browsers and bundlers)", () => {
     });
 
     expect(message).toContain("await ready()");
-    expect(message).toContain("calaminejs");
+    expect(message).toContain("calamine");
   });
 
   test("keeps a date distinguishable from text that looks like one", async ({ page }) => {

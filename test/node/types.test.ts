@@ -17,8 +17,8 @@ import { join } from "node:path";
 // whichever one the exports map picks for this runtime.
 import { initSync, sheetNames as slimSheetNames } from "../../dist/slim.js";
 import * as slim from "../../dist/slim.js";
-import * as main from "calaminejs";
-import type { Cell, JsonOptions, ReadOptions, Row, TaggedCell, TaggedRow } from "calaminejs";
+import * as main from "calamine";
+import type { Cell, JsonOptions, ReadOptions, Row, TaggedCell, TaggedRow } from "calamine";
 import { crafted, dist } from "../support/paths.ts";
 
 let failures = 0;

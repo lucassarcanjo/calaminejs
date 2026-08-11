@@ -12,7 +12,7 @@ Notable changes per release. Dates are ISO-8601. This project follows
   `Row[]` and `TaggedRow[]` are reachable without a cast. The string-returning
   `readCells` and `toJson` are unchanged and still the cheaper path when the
   JSON is being forwarded rather than inspected.
-- Type declarations for `calaminejs/slim`, which previously borrowed the default
+- Type declarations for `calamine/slim`, which previously borrowed the default
   entry's and so promised a `ready()` it does not export while giving no types
   at all for the `init`/`initSync` it does. Those now return wasm-bindgen's
   `InitOutput`, so `memory` is reachable.
@@ -32,6 +32,12 @@ Notable changes per release. Dates are ISO-8601. This project follows
 
 ### Changed
 
+- Published as `calamine` on npm, and the README leads with that name. Import
+  specifiers and the two subpaths moved with it — `calamine/inline`,
+  `calamine/slim` — as did the error the streaming entry throws, which names the
+  package a caller would have installed. The repository is still `calaminejs`,
+  and so is `docs/comparison.md`, where having both names available is what keeps
+  this binding distinguishable from the crate it wraps.
 - Declarations moved out of `scripts/build.mjs`, where they were an escaped
   template literal, into checked files under `types/`. The test suites are
   TypeScript and import the package by name, so the declarations are verified

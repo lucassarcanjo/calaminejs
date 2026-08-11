@@ -34,7 +34,7 @@ returning `void`, which was internally consistent, compiled fine, and was still
 wrong. So every claim there is asserted twice: once as a type, once against the
 value at runtime.
 
-For the same reason the suites import `calaminejs` by name rather than reaching
+For the same reason the suites import `calamine` by name rather than reaching
 into `../../dist/`. A self-reference resolves through the `exports` map, so what
 gets tested is the condition a user's runtime actually picks and the types that
 condition advertises. `adversarial.test.ts` is the exception: it imports the raw

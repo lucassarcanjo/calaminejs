@@ -1,4 +1,4 @@
-// The default entry, and `calaminejs/inline`. Both load the wasm themselves, so
+// The default entry, and `calamine/inline`. Both load the wasm themselves, so
 // what they add over the shared surface is `ready()`.
 export * from "./api.js";
 

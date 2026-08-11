@@ -4,8 +4,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as XLSX from "xlsx";
-import { readCellsParsed, sheetNames } from "calaminejs";
-import type { Cell } from "calaminejs";
+import { readCellsParsed, sheetNames } from "calamine";
+import type { Cell } from "calamine";
 import { benchFixtures } from "../support/paths.ts";
 
 const buf = readFileSync(join(benchFixtures, "small.xlsx"));

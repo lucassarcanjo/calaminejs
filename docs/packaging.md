@@ -10,10 +10,10 @@ bytes reach the glue, which is the one thing every runtime does differently.
 | `dist/node.js` | `node` | `node:fs` + `initSync` — synchronous |
 | `dist/workerd.js` | `workerd` | `import wasm from "./…wasm"` — Workers want a compiled Module, not bytes |
 | `dist/streaming.js` | `browser`, `import` | `fetch` + `instantiateStreaming` |
-| `dist/inline.js` | `calaminejs/inline` | base64 in the JS, for builds that cannot ship a companion asset |
-| `dist/slim.js` | `calaminejs/slim` | you supply the bytes or Module |
+| `dist/inline.js` | `calamine/inline` | base64 in the JS, for builds that cannot ship a companion asset |
+| `dist/slim.js` | `calamine/slim` | you supply the bytes or Module |
 
-The raw binary is also exported as `calaminejs/calamine_wasm_bg.wasm`, which is how Workers
+The raw binary is also exported as `calamine/calamine_wasm_bg.wasm`, which is how Workers
 projects and some bundlers prefer to resolve it themselves.
 
 Bun and Deno both resolve the `node` condition and both implement `node:fs`, so all three

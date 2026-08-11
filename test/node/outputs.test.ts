@@ -2,8 +2,8 @@
 // to break a naive implementation: a comma, a quote, a pipe, an embedded
 // newline, a duplicate header, a blank header, an error cell, a real date and
 // text that looks exactly like one.
-import { readCellsParsed, toCsv, toJsonParsed, toMarkdown } from "calaminejs";
-import type { CsvOptions, JsonOptions, ReadOptions } from "calaminejs";
+import { readCellsParsed, toCsv, toJsonParsed, toMarkdown } from "calamine";
+import type { CsvOptions, JsonOptions, ReadOptions } from "calamine";
 import { makeXlsx, sheet } from "../support/zip.ts";
 
 const str = (r: number, c: string, v: string) =>

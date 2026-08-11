@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readCellsParsed, ready, sheetNames, toCsv } from "calaminejs";
+import { readCellsParsed, ready, sheetNames, toCsv } from "calamine";
 
 // Resolved from this file, not the working directory, so the example runs from
 // anywhere rather than only from the repo root.

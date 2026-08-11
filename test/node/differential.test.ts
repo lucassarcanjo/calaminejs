@@ -12,8 +12,8 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { readCellsParsed, sheetNames } from "calaminejs";
-import type { Cell, DatePolicy } from "calaminejs";
+import { readCellsParsed, sheetNames } from "calamine";
+import type { Cell, DatePolicy } from "calamine";
 import { corpus, crafted, root } from "../support/paths.ts";
 
 const dumper = join(root, "target", "release", "examples", "dump_native");

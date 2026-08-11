@@ -1,5 +1,5 @@
 {
-  "name": "calaminejs",
+  "name": "calamine",
   "version": "0.1.0",
   "description": "Fast xlsx/xls/xlsb/ods reader — calamine compiled to WebAssembly. One artifact for Node, Bun, Deno, browsers and edge workers.",
   "license": "MIT",

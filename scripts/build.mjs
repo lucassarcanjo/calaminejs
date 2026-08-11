@@ -140,7 +140,7 @@ function guard(name, fn) {
   return (...args) => {
     if (!initialised) {
       throw new Error(
-        \`calaminejs: await ready() before calling \${name}() — this environment loads the wasm asynchronously\`,
+        \`calamine: await ready() before calling \${name}() — this environment loads the wasm asynchronously\`,
       );
     }
     return fn(...args);

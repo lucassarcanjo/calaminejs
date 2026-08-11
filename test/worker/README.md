@@ -28,7 +28,7 @@ bun add -d miniflare
 Then, in this directory:
 
 - `worker.js` — a fetch handler importing `sheetNames` / `toCsv` from
-  `calaminejs` (or `../../dist/workerd.js` before publishing), reading a fixture
+  `calamine` (or `../../dist/workerd.js` before publishing), reading a fixture
   posted to it and returning the result as JSON.
 - `wrangler.toml` — `compatibility_date`, and `rules` with
   `type = "CompiledWasm"` for `**/*.wasm` so the import resolves.
