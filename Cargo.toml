@@ -1,5 +1,9 @@
 [package]
 name = "calamine-wasm"
+# This crate is never released to crates.io — it exists only to be compiled to
+# wasm and assembled into the npm package, whose version in package.json is the
+# one that means anything. Hence `publish = false` and an inert version here,
+# rather than a second number to keep in sync for no reader's benefit.
 version = "0.0.0"
 edition = "2021"
 license = "MIT"
@@ -24,8 +28,11 @@ serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
 
 [profile.release]
-# Spike is measuring throughput, so optimise for speed, not size.
-# Revisit opt-level = "z" once the API shape is settled.
+# Optimised for throughput, not size. That is a real trade rather than a default:
+# the binary ships to browsers, where its 370 KB gzipped is a cost every visitor
+# pays, and `opt-level = "z"` would cut it. But reading large files quickly is
+# the entire reason to choose this over SheetJS, so speed wins. Revisit if size
+# turns out to be the complaint people actually have.
 opt-level = 3
 lto = true
 codegen-units = 1
