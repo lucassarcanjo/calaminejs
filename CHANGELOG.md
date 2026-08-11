@@ -29,6 +29,11 @@ Notable changes per release. Dates are ISO-8601. This project follows
 - Package metadata needed to publish — `repository`, `homepage`, `bugs`,
   `author`, `engines`.
 - `CONTRIBUTING.md` and `SECURITY.md`.
+- A release workflow that publishes with npm provenance. The tarball ships a
+  740 KB wasm binary no reader can inspect, so a signed attestation tying those
+  bytes to a commit and a workflow run is worth more here than it is for a
+  package whose source is its published form. Publishing now happens only from
+  CI, because a laptop cannot produce that attestation.
 
 ### Changed
 

@@ -1,0 +1,111 @@
+name: Release
+
+# Publishing happens here and nowhere else. The tarball ships a 740 KB wasm
+# binary that nobody can read, so the thing that makes it trustworthy is
+# provenance: a signed attestation linking the published bytes to this workflow,
+# this commit and this repository. A publish from a laptop cannot produce one,
+# which is the whole reason this file exists.
+on:
+  release:
+    types: [published]
+  # Cutting a release from the Actions tab, for a dry run against the registry.
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Build and gate, but do not publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  # Mints the OIDC token that the provenance attestation is signed against.
+  # Without this the --provenance flag fails rather than silently degrading.
+  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  publish:
+    name: build, gate and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Same toolchain as ci.yml's build job, and for the same reasons — the
+      # comments there explain each one. It is duplicated rather than shared
+      # because a release must not depend on a reusable workflow that someone
+      # can edit without noticing they changed how releases are built.
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install --profile minimal
+      - run: rustup show
+
+      - name: Install wasm-pack
+        run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+
+      # Pinned, and deliberately not `apt install binaryen`: the version Ubuntu
+      # ships mangles the externref table and produces a wasm that cannot
+      # instantiate, while still reporting success. See ci.yml.
+      - name: Install binaryen
+        env:
+          BINARYEN_VERSION: version_131
+        run: |
+          curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/${BINARYEN_VERSION}/binaryen-${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            | tar -xz -C /opt
+          echo "/opt/binaryen-${BINARYEN_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Verify wasm-opt
+        run: wasm-opt --version
+
+      # `package-manager-cache: false` — a release build restores nothing from a
+      # cache that a previous run could have poisoned.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # A tag that disagrees with package.json publishes the wrong version under
+      # the right name, which cannot be undone — npm does not allow a re-publish
+      # of the same version. Cheaper to fail here.
+      - name: Check the tag matches package.json
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p 'require("./package.json").version')"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::release tag v$tag does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "publishing $pkg"
+
+      # prepack runs build + smoke + check-publish, and smoke reads a crafted
+      # fixture that is generated rather than committed. Without this the publish
+      # aborts inside prepack.
+      - name: Crafted fixtures
+        run: node test/support/make-crafted-fixtures.ts
+
+      # The declarations are hand-written against the wasm, so this is the only
+      # thing that checks they are true of what is about to ship.
+      - name: Typecheck against the built package
+        run: |
+          bun run build
+          bun run typecheck
+
+      - name: Publish to npm
+        if: github.event_name == 'release'
+        # --provenance signs the attestation; --access public is needed the first
+        # time an unscoped package is published and is a no-op after that.
+        # prepack rebuilds, smoke-checks and verifies every exports target first.
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry run
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          npm publish --provenance --access public --dry-run
+          echo "dry run only — nothing was published"
