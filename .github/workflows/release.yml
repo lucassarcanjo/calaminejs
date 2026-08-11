@@ -65,6 +65,18 @@ jobs:
       - name: Verify wasm-opt
         run: wasm-opt --version
 
+      # Dependencies are installed BEFORE setup-node, and the order is load-
+      # bearing. setup-node writes an .npmrc containing
+      # `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}`, and under trusted
+      # publishing that variable is never set, so it stays the literal
+      # placeholder. Bun honours that file and starts sending a bogus credential
+      # to the registry, which fails part of the time — it took down this job
+      # twice with `Fail extracting tarball for "xlsx"`, an error that names
+      # neither auth nor the .npmrc. Installing first means the file does not
+      # exist yet. ci.yml never hit this because it has no setup-node at all.
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
       # `package-manager-cache: false` — a release build restores nothing from a
       # cache that a previous run could have poisoned.
       - uses: actions/setup-node@v6
@@ -88,9 +100,6 @@ jobs:
             echo "::error::npm $v cannot use trusted publishing; needs 11.5.1+"
             exit 1
           fi
-
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
 
       # A tag that disagrees with package.json publishes the wrong version under
       # the right name, which cannot be undone — npm does not allow a re-publish
