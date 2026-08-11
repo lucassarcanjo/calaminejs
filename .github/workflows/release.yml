@@ -5,6 +5,13 @@ name: Release
 # provenance: a signed attestation linking the published bytes to this workflow,
 # this commit and this repository. A publish from a laptop cannot produce one,
 # which is the whole reason this file exists.
+#
+# Authentication is npm trusted publishing: the registry trusts this repository
+# and this filename, and npm exchanges the OIDC token below for a short-lived
+# credential at publish time. No npm token exists in this repo's secrets, and
+# none should be added — a token is a standing credential that can leak, which
+# is exactly what this arrangement removes. Renaming this file breaks publishing
+# until the trusted publisher on npmjs.com is updated to match.
 on:
   release:
     types: [published]
@@ -18,8 +25,9 @@ on:
 
 permissions:
   contents: read
-  # Mints the OIDC token that the provenance attestation is signed against.
-  # Without this the --provenance flag fails rather than silently degrading.
+  # Mints the OIDC token, which does double duty: it authenticates the publish
+  # and it is what the provenance attestation is signed against. Without this
+  # the publish fails outright rather than silently shipping unattested.
   id-token: write
 
 env:
@@ -65,6 +73,22 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
+      # Trusted publishing needs npm 11.5.1+. Whatever npm ships inside a given
+      # Node release is not pinned to anything this repo controls, and an npm
+      # too old does not fail informatively — it looks for a token, finds none,
+      # and reports an auth error that says nothing about its own version.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          v="$(npm --version)"
+          echo "npm $v"
+          # Lowest of {installed, 11.5.1} must be 11.5.1 for the installed one to
+          # satisfy the floor.
+          if [ "$(printf '%s\n%s\n' "$v" "11.5.1" | sort -V | head -1)" != "11.5.1" ]; then
+            echo "::error::npm $v cannot use trusted publishing; needs 11.5.1+"
+            exit 1
+          fi
+
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
 
@@ -95,17 +119,15 @@ jobs:
           bun run build
           bun run typecheck
 
+      # No --provenance flag and no token: trusted publishing authenticates via
+      # OIDC and generates the attestation on its own. prepack rebuilds,
+      # smoke-checks and verifies every exports target before the tarball is cut.
       - name: Publish to npm
         if: github.event_name == 'release'
-        # --provenance signs the attestation; --access public is needed the first
-        # time an unscoped package is published and is a no-op after that.
-        # prepack rebuilds, smoke-checks and verifies every exports target first.
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
 
       - name: Dry run
         if: github.event_name == 'workflow_dispatch'
         run: |
-          npm publish --provenance --access public --dry-run
+          npm publish --dry-run
           echo "dry run only — nothing was published"
