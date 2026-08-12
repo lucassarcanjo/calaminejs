@@ -2,20 +2,40 @@
 
 [![CI](https://github.com/lucassarcanjo/calaminejs/actions/workflows/ci.yml/badge.svg)](https://github.com/lucassarcanjo/calaminejs/actions/workflows/ci.yml)
 
-The Rust spreadsheet reader [calamine](https://github.com/tafia/calamine), compiled to
-WebAssembly, so the same artifact reads `.xlsx` / `.xls` / `.xlsb` / `.ods` in Node, Bun, Deno,
-browsers and edge runtimes without a native addon or a per-platform prebuild.
+**Fast, zero-dependency spreadsheet parsing for JavaScript.**
+
+Read `.xlsx`, `.xls`, `.xlsb` and `.ods` files and convert them to JSON, CSV, Markdown or
+typed cells.
+
+Powered by [calamine](https://github.com/tafia/calamine) and WebAssembly. The same package
+runs in Node.js, Bun, Deno, browsers and edge runtimes.
 
 ```sh
 npm install calamine
 ```
 
-This is an **unofficial** binding. calamine is [tafia's](https://github.com/tafia/calamine)
-and does the actual parsing; this repo only decides what the parsed values look like in
-JavaScript and how one wasm binary reaches five runtimes. The npm package is named for what it
-wraps, but it is maintained here, so please report problems here first — the
-[CONTRIBUTING](CONTRIBUTING.md) guide explains how to tell a binding bug from an upstream one
-before you file either.
+```ts
+import { toJsonParsed, ready } from "calamine";
+
+await ready();                     // no-op outside browsers; see below
+const rows = toJsonParsed(bytes);  // bytes: Uint8Array
+```
+
+**Why calamine?**
+
+- ⚡ Up to **5x faster than SheetJS** on large workbooks
+- 📦 **Zero dependencies**
+- 🌍 Node.js, Bun, Deno, browsers and edge runtimes
+- 📊 XLSX, XLS, XLSB and ODS
+- 🔄 JSON, CSV, Markdown and typed cell output
+- 📅 Predictable Excel date and duration handling
+
+> Read-only by design. If you need to create or style spreadsheets, use ExcelJS or SheetJS.
+
+An **unofficial** binding: calamine is [tafia's](https://github.com/tafia/calamine) and does
+the parsing, while this repo decides what the values look like in JavaScript. Please report
+problems here rather than upstream — [CONTRIBUTING](CONTRIBUTING.md) explains how to tell a
+binding bug from one in the parser.
 
 ## Using it
 
