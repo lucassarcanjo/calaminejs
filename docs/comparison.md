@@ -178,10 +178,10 @@ Not close, and worth being explicit about:
 - **No streaming.** Whole sheet, one call. ExcelJS has a streaming reader for
   files that do not fit in memory.
 - **Fewer formats.** Four. No csv, dbf, Numbers or html.
-- **Maturity.** 0.1.0, one maintainer, against a decade of SheetJS in
+- **Maturity.** 0.2.0, one maintainer, against a decade of SheetJS in
   production. The differential suite over calamine's own corpus is the argument
   for trusting it anyway, and it is a weaker argument than a decade.
-- **wasm.** 370 KB gzipped before any of your code runs, and environments that
+- **wasm.** 390 KB gzipped before any of your code runs, and environments that
   cannot execute WebAssembly are excluded outright.
 
 ## Choosing

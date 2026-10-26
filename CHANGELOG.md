@@ -3,7 +3,54 @@
 Notable changes per release. Dates are ISO-8601. This project follows
 [semantic versioning](https://semver.org/); before 1.0, minor bumps may break.
 
-## Unreleased
+## 0.2.0 — 2026-10-26
+
+Built on calamine 0.37.0 (was 0.36.1). Most of what changes is upstream's
+parser getting more things right, but three of those fixes change what an
+existing call returns for the same file, hence a minor bump rather than a patch.
+
+### Added
+
+- `workbookProperties(bytes)` — creator, title, subject, keywords, created and
+  modified dates, application, company and the rest of `docProps/core.xml` and
+  `docProps/app.xml`, new in calamine 0.37. Every field is present and `null`
+  when unset. xlsx and xlsb only: calamine does not read properties from xls or
+  ods, and those throw rather than returning nulls that would claim the file
+  has none. `created` and `modified` are passed through as the file's W3CDTF
+  strings; they carry an offset, so the `dates` policy does not apply.
+
+### Changed
+
+- **xlsx boolean cells must be `0`, `1`, `true` or `false`.** Anything else used
+  to read as `true`; it now fails the sheet with `Unrecognized boolean cell
+  value`. A file that relied on the old reading will throw where it returned.
+- **East Asian built-in number formats (ids 27–36 and 50–58) are dates.** Cells
+  using them came back as numbers and now come back as dates under whichever
+  `dates` policy is in force — tagged `date` rather than `num`.
+- **An `<x15:workbookPr>` extension no longer resets the 1904 date system.**
+  Affected xlsx files had every date four years and a day early; they are now
+  right.
+- Date serials past 9999-12-31 clamp to that day. Previously a large enough
+  serial in a hostile file could panic inside calamine, which under
+  `panic = "abort"` takes the wasm instance with it.
+- The wasm is 388 KB gzipped (757 KB raw), up from 372 KB, mostly zip 9 and
+  quick-xml 0.42 coming in with calamine.
+
+### Fixed (upstream, in calamine 0.37)
+
+- xls sheets with an embedded chart no longer leak the chart's cells into the
+  sheet.
+- xlsx formula string results decode `_xHHHH_` escapes, as shared and inline
+  strings already did.
+- xls: UTF-16 `PtgStr` formula operands, `DIMENSIONS` records with two trailing
+  bytes, and a panic on a truncated `PtgExp` operand.
+- The CFB reader under xls checks header sector counts before allocating, so a
+  corrupt file can no longer ask for a huge allocation.
+
+## 0.1.0 — 2026-08-11
+
+The first release on npm. It is everything below: the first cut, and the work
+that made it publishable.
 
 ### Added
 
@@ -51,9 +98,7 @@ Notable changes per release. Dates are ISO-8601. This project follows
   actually called, not the one it delegates to.
 - No longer `private: true`.
 
-## 0.1.0 — unreleased
-
-First cut. Not on npm.
+### First cut
 
 - calamine 0.36 compiled to WebAssembly, reading `.xlsx` / `.xls` / `.xlsb` /
   `.ods` from bytes.
