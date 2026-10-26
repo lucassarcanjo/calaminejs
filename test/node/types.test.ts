@@ -80,7 +80,7 @@ check("slim has no ready() at runtime either", !("ready" in slim), Object.keys(s
 check("the default entry does have ready()", typeof main.ready === "function");
 
 // Both entries expose the same read surface, so code can move between them.
-const shared = ["sheetNames", "readCells", "toJson", "toCsv", "toMarkdown", "readCellsParsed", "toJsonParsed"];
+const shared = ["sheetNames", "workbookProperties", "readCells", "toJson", "toCsv", "toMarkdown", "readCellsParsed", "toJsonParsed"];
 const missingFromSlim = shared.filter((name) => !(name in slim));
 check("slim exposes the full read API", missingFromSlim.length === 0, missingFromSlim.join(",") || "all present");
 

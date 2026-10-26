@@ -28,7 +28,7 @@ const WASM = "calamine_wasm_bg.wasm";
 // The functions each entry re-exports. Deliberately not parseOnly or
 // readCellsAsValue — those are benchmark instrumentation and the benchmarks
 // import them from the glue directly.
-const API = ["sheetNames", "readCells", "toJson", "toCsv", "toMarkdown"];
+const API = ["sheetNames", "workbookProperties", "readCells", "toJson", "toCsv", "toMarkdown"];
 
 // Imported rather than re-exported straight through, because the parsed helpers
 // below need the names in local scope. `export { ... }` on a bare re-export does

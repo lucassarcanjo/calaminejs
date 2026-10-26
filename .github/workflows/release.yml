@@ -1,6 +1,6 @@
 name: Release
 
-# Publishing happens here and nowhere else. The tarball ships a 740 KB wasm
+# Publishing happens here and nowhere else. The tarball ships a 760 KB wasm
 # binary that nobody can read, so the thing that makes it trustworthy is
 # provenance: a signed attestation linking the published bytes to this workflow,
 # this commit and this repository. A publish from a laptop cannot produce one,

@@ -22,7 +22,7 @@ reproduced, so each distinct notice gets its own entry.
 
 ## Summary
 
-- **MIT License** — 47 crates
+- **MIT License** — 48 crates
 - **Apache License 2.0** — 1 crate
 - **BSD 3-Clause "New" or "Revised" License** — 1 crate
 - **Unicode License v3** — 1 crate
@@ -518,6 +518,38 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 
+### MIT License — getrandom 0.4.3
+
+```
+Copyright (c) 2018-2026 The rust-random Project Developers
+Copyright (c) 2014 The Rust Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+
 ### MIT License — slab 0.4.12
 
 ```
@@ -784,7 +816,7 @@ SOFTWARE.
 
 ```
 
-### MIT License — adler2 2.0.1, fast-float2 0.2.3, itoa 1.0.18, once_cell 1.21.4, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, rustversion 1.0.23, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, syn 2.0.119, syn 3.0.3, typed-path 0.12.3, unicode-ident 1.0.24, zmij 1.0.23
+### MIT License — adler2 2.0.1, fast-float2 0.2.3, itoa 1.0.18, once_cell 1.21.4, pin-project-lite 0.2.17, proc-macro2 1.0.107, quote 1.0.47, rustversion 1.0.23, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, syn 2.0.119, syn 3.0.3, typed-path 0.13.0, unicode-ident 1.0.24, zmij 1.0.23
 
 ```
 Permission is hereby granted, free of charge, to any
@@ -813,7 +845,7 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 
-### MIT License — zip 8.6.0
+### MIT License — zip 9.1.2
 
 ```
 The MIT License (MIT)
@@ -867,34 +899,7 @@ THE SOFTWARE.
 
 ```
 
-### MIT License — calamine 0.36.1
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2016 Johann Tuffe
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-```
-
-### MIT License — quick-xml 0.41.0
+### MIT License — calamine 0.37.0, quick-xml 0.42.0
 
 ```
 The MIT License (MIT)

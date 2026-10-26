@@ -7,7 +7,7 @@
 # fetching it keeps the provenance and MIT attribution unambiguous.
 set -euo pipefail
 
-TAG="v0.36.1"
+TAG="v0.37.0"
 DEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/calamine"
 
 if [ -d "$DEST" ] && [ -f "$DEST/.tag" ] && [ "$(cat "$DEST/.tag")" = "$TAG" ]; then

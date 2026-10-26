@@ -381,6 +381,25 @@ mod tests {
     }
 
     #[test]
+    fn serials_beyond_excel_range_clamp_to_9999_12_31() {
+        // A hostile file can carry any f64 as a date serial. calamine 0.36
+        // could panic on the huge ones (tafia/calamine#722), and under
+        // panic=abort that kills the wasm instance; 0.37 clamps them instead.
+        // The clamp is upstream's; pinned here because every policy is built on
+        // the civil fields it produces.
+        for serial in [2_958_466.0, 1e20, f64::MAX, f64::INFINITY] {
+            let dt = ExcelDateTime::new(serial, calamine::ExcelDateTimeType::DateTime, false);
+            assert_eq!(
+                Civil::from_excel(&dt).to_iso(),
+                "9999-12-31T00:00:00.000",
+                "{serial}"
+            );
+        }
+        let dt = ExcelDateTime::new(f64::NAN, calamine::ExcelDateTimeType::DateTime, false);
+        assert_eq!(Civil::from_excel(&dt).to_iso(), "1899-12-31T00:00:00.000");
+    }
+
+    #[test]
     fn epoch_millis_matches_a_known_instant() {
         // 2020-01-01T00:00:00Z
         let dt = ExcelDateTime::new(43831.0, calamine::ExcelDateTimeType::DateTime, false);

@@ -17,7 +17,7 @@ crate-type = ["cdylib", "rlib"]
 # `as_datetime`/`as_duration` chrono helpers — date *detection* from number
 # formats is always on. `ExcelDateTime::to_ymd_hms_milli` gives us the civil
 # fields directly, with millisecond precision and 1900/1904 handled internally.
-calamine = "0.36"
+calamine = "0.37"
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 serde = { version = "1", features = ["derive"] }
@@ -29,7 +29,7 @@ console_error_panic_hook = "0.1"
 
 [profile.release]
 # Optimised for throughput, not size. That is a real trade rather than a default:
-# the binary ships to browsers, where its 370 KB gzipped is a cost every visitor
+# the binary ships to browsers, where its 390 KB gzipped is a cost every visitor
 # pays, and `opt-level = "z"` would cut it. But reading large files quickly is
 # the entire reason to choose this over SheetJS, so speed wins. Revisit if size
 # turns out to be the complaint people actually have.

@@ -11,11 +11,12 @@
 mod cells;
 mod dates;
 mod output;
+mod properties;
 
 use std::io::Cursor;
 
 use calamine::{open_workbook_auto_from_rs, Data, Range, Reader};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 use crate::dates::DatePolicy;
@@ -141,6 +142,26 @@ pub fn sheet_names(bytes: &[u8]) -> Result<Vec<String>, JsError> {
     let workbook = open_workbook_auto_from_rs(Cursor::new(bytes))
         .map_err(|e| JsError::new(&format!("could not open workbook: {e}")))?;
     Ok(workbook.sheet_names())
+}
+
+/// Document properties — creator, title, created/modified and so on — as an
+/// object with every field present and `null` where the file sets nothing.
+///
+/// xlsx and xlsb only. calamine does not read properties from xls or ods, and
+/// that is an error here rather than an object of nulls, which would claim the
+/// file has none.
+#[wasm_bindgen(js_name = workbookProperties)]
+pub fn workbook_properties(bytes: &[u8]) -> Result<JsValue, JsError> {
+    let mut workbook = open_workbook_auto_from_rs(Cursor::new(bytes))
+        .map_err(|e| JsError::new(&format!("could not open workbook: {e}")))?;
+    let props = workbook
+        .workbook_properties()
+        .map_err(|e| JsError::new(&format!("could not read workbook properties: {e}")))?;
+    // `json_compatible` turns `None` into `null`. The default serializer makes
+    // it `undefined`, which drops the key from the object entirely.
+    properties::Properties::from(props)
+        .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
+        .map_err(|e| JsError::new(&format!("could not convert properties: {e}")))
 }
 
 /// Rows of cells, as a JSON string for the caller to parse.

@@ -118,7 +118,7 @@ regenerated `THIRD-PARTY-LICENSES.md`; CI fails if it drifts from `Cargo.lock`.
 `accepted` in `about.toml` is an allowlist — anything copyleft fails the build
 rather than being discovered after publishing.
 
-Weigh the artifact size too. It is 370 KB gzipped and that number is in the
+Weigh the artifact size too. It is 390 KB gzipped and that number is in the
 README, which makes it a promise.
 
 ## Commit messages

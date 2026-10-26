@@ -62,6 +62,40 @@ export type MarkdownOptions = Omit<ReadOptions, "tagged">;
 export function sheetNames(bytes: Uint8Array): string[];
 
 /**
+ * Document properties from `docProps/core.xml` and `docProps/app.xml`. Every
+ * field is present, and `null` when the file does not set it.
+ *
+ * `created` and `modified` are the file's own W3CDTF strings, normally ending in
+ * `Z`. They are instants, so the `dates` policy does not apply to them.
+ */
+export interface WorkbookProperties {
+  creator: string | null;
+  lastModifiedBy: string | null;
+  created: string | null;
+  modified: string | null;
+  title: string | null;
+  subject: string | null;
+  description: string | null;
+  keywords: string | null;
+  category: string | null;
+  contentStatus: string | null;
+  revision: string | null;
+  version: string | null;
+  application: string | null;
+  appVersion: string | null;
+  company: string | null;
+  template: string | null;
+  manager: string | null;
+}
+
+/**
+ * The workbook's document properties. xlsx and xlsb only: calamine does not
+ * read them from xls or ods, and this throws for those rather than returning
+ * nulls that would claim the file has none.
+ */
+export function workbookProperties(bytes: Uint8Array): WorkbookProperties;
+
+/**
  * Rows of cells, as a JSON string. Parse it with `JSON.parse`, or use
  * {@link readCellsParsed}, which does that and knows the resulting type.
  *

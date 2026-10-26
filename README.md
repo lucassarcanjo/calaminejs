@@ -62,6 +62,7 @@ type-checked in CI so it cannot drift from the API.
 | | returns |
 |---|---|
 | `sheetNames(bytes)` | `string[]` — workbook order. Only reads metadata, so it is cheap. |
+| `workbookProperties(bytes)` | creator, title, created/modified and the rest of the document properties, `null` where unset. xlsx and xlsb only |
 | `readCellsParsed(bytes, o?)` | `Cell[][]`, or `TaggedCell[][]` with `tagged: true` |
 | `toJsonParsed(bytes, o?)` | `Row[]` keyed by the header row, or `Cell[][]` with `header: "none"` |
 | `toCsv(bytes, o?)` | RFC 4180 `string` |
@@ -124,7 +125,7 @@ The full parse costs 634 ms of that large-file number, so the JS/wasm boundary i
 top — which was the surprise. The boundary is not the bottleneck, so the API does not need to
 be contorted into a columnar or batched-iterator shape to be fast.
 
-Artifact size: **370 KB gzipped** (720 KB raw) plus 3.2 KB of JS glue.
+Artifact size: **390 KB gzipped** (760 KB raw) plus 3.2 KB of JS glue.
 
 ## Dates, carefully
 
