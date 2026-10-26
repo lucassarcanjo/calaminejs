@@ -125,9 +125,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: licenses
+      # Pinned: the output is diffed byte for byte, so a new cargo-about that
+      # scans crates differently fails this job on an unchanged Cargo.lock.
+      # 0.9.3 does exactly that, attributing a source file in encoding_rs as a
+      # second BSD licence. Bump deliberately, regenerating in the same commit.
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-about
+          tool: cargo-about@0.9.1
       - uses: oven-sh/setup-bun@v2
 
       # Regenerates in place and fails if the committed file moved. The failure

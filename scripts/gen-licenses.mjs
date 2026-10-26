@@ -21,7 +21,7 @@ try {
   });
 } catch (error) {
   if (error.code === "ENOENT" || /no such command/.test(String(error.stderr ?? ""))) {
-    console.error("\ncargo-about is not installed:\n\n  cargo install cargo-about --features cli\n");
+    console.error("\ncargo-about is not installed:\n\n  cargo install cargo-about@0.9.1 --features cli --locked\n");
     process.exit(1);
   }
   throw error;
